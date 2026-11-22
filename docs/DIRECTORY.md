@@ -93,3 +93,11 @@ Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에
 | `주택연금 담보제공방식 추천 도구 적용 로직 및 알고리즘 명세서_v202611211710.md` | 추천 로직 명세 |
 | `index2.html` | 등기서류(위임장, 확인서면) 자동 작성 시제품 |
 | `README.md` | 이전 README |
+
+## v6.1 추가 (2026-11-23)
+
+- `js/collateral.js` : Step 5 담보방식 추천. `colEval(inp)`(계산만, 화면을 건드리지 않음), `colInputs()`, `colRender(r)`, `colRefresh()`, `colInit()`, 상수 `COL_Q`(선호 문항), `COL_LIFE`(기대여명 표)
+- script 순서: common → api → customer → building → price → pension → application → collateral → main
+- `js/main.js` 끝에서 `colInit()`을, `js/application.js`의 `updateDocList()` 첫머리에서 `colRefresh()`를 부릅니다
+- `S.userBase` : 상담자가 가격 기준을 직접 골랐는지 표시. `js/main.js`에서 켜고 `js/building.js`의 `resetUnit()`에서 끕니다
+- `backup/202611230850/` : v6.1 변경 전 코드 10개 파일

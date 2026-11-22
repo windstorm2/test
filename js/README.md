@@ -12,3 +12,5 @@
 8. `main.js` : 화면 이벤트 연결과 시작 코드
 
 파일별 함수 목록과 고칠 때의 규칙은 [docs/DIRECTORY.md](../docs/DIRECTORY.md)를 보세요.
+
+- `collateral.js` : Step 5 담보방식 추천 (v6.1). `index.html`에서 `main.js` 바로 앞에 읽습니다.

@@ -2,6 +2,16 @@
 
 최신 항목을 위에 적습니다.
 
+## v6.1 (2026-11-23)
+
+- 시세 자동 선택: 면적 차이 0.1㎡ 이내 타입이 있으면 부동산원 → 국민은행 순서, 없으면 가장 가까운 타입 (`js/price.js`의 `bestSise()`)
+- 상담자가 고른 가격 기준이나 직접 입력한 가격을 다른 호를 선택하기 전까지 유지 (`S.userBase`. `js/price.js`, `js/main.js`, `js/building.js`)
+- Step 5 담보방식 추천 추가 (`js/collateral.js`, `index.html`, `css/main.css`). 기존 신청서는 Step 6
+- `updateDocList()` 첫머리에서 추천을 다시 계산 (`js/application.js`)
+- 변경 전 코드: `backup/202611230850/`
+- 확인: JS 문법 검사, Node 계산 시험(시세 선택 7개, 추천 판정 43개 모두 통과). 브라우저 화면 시험은 하지 않음
+- 요건정의(v0.5), 개요, README는 아직 v6.1을 반영하지 않음
+
 ## 2026-11-22 23:05 메인 파일 분할, 요건정의 v0.5
 
 - 통합 상담·신청 보조도구 v6.0(`backup/202611222155/index.html`)을 기능 변경 없이 `index.html`, `css/main.css`, `js/` 8개 파일로 분할
