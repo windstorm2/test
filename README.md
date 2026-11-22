@@ -8,16 +8,23 @@
 
 ## 현재 상태 (2026-11-22)
 
-구조 개편 1단계입니다. 기존 파일은 모두 `backup/202611222155/`로 옮겼고, 새 폴더 구조와 문서만 만든 상태입니다.
-코드 분할은 아직 시작하지 않았습니다. 기존 도구는 백업 폴더 안의 파일로 그대로 열 수 있습니다.
+- 통합 상담·신청 보조도구 v6.0을 기능 변경 없이 화면(`index.html`), 모양(`css/`), 동작(`js/`)으로 나눴습니다. 실제 브라우저에서의 동작 확인은 아직 남아 있습니다.
+- 개발용 화면: https://windstorm2.github.io/test/
+- 나누기 전 원본과 아직 통합하지 않은 기존 도구는 `backup/202611222155/`에 있습니다.
+
+| 기존 도구 | 열기 |
+|---|---|
+| 통합 상담·신청 보조도구 v6.0 (나누기 전 원본) | [열기](https://windstorm2.github.io/test/backup/202611222155/index.html) |
+| 담보제공방식 추천 도구 | [열기](https://windstorm2.github.io/test/backup/202611222155/%E1%84%8C%E1%85%AE%E1%84%90%E1%85%A2%E1%86%A8%E1%84%8B%E1%85%A7%E1%86%AB%E1%84%80%E1%85%B3%E1%86%B7%20%E1%84%83%E1%85%A1%E1%86%B7%E1%84%87%E1%85%A9%E1%84%8C%E1%85%A6%E1%84%80%E1%85%A9%E1%86%BC%E1%84%87%E1%85%A1%E1%86%BC%E1%84%89%E1%85%B5%E1%86%A8%20%E1%84%8E%E1%85%AE%E1%84%8E%E1%85%A5%E1%86%AB%20%E1%84%83%E1%85%A9%E1%84%80%E1%85%AE_v202611211710.html) |
+| 등기서류(위임장·확인서면) 시제품 | [열기](https://windstorm2.github.io/test/backup/202611222155/index2.html) |
 
 ## 문서
 
 | 문서 | 내용 |
 |---|---|
 | [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | 프로젝트 개요, 원칙, 단계별 현황, 작업 순서 |
-| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 요건정의(적용 로직 전체). 현재 v0.1 초안 |
-| [docs/DIRECTORY.md](docs/DIRECTORY.md) | 폴더 구조와 파일별 역할 |
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 요건정의(적용 로직 전체) |
+| [docs/DIRECTORY.md](docs/DIRECTORY.md) | 폴더 구조, 파일별 역할, 코드를 고칠 때의 규칙 |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | 변경 이력 |
 
 ## 다른 환경(AI 서비스 포함)에서 이어서 작업할 때
@@ -26,3 +33,4 @@
 2. 코드나 로직을 고치면 같은 커밋에서 `docs/CHANGELOG.md`와 관련 문서를 함께 고칩니다.
 3. 기존 파일을 크게 바꾸기 전에는 `backup/연월일시분/` 폴더에 사본을 둡니다.
 4. 인증키와 고객 정보는 코드에 넣지 않습니다. 이 저장소는 공개 상태입니다.
+5. `js/` 파일은 `index.html`에 적힌 순서대로 불러와야 합니다. 규칙은 `docs/DIRECTORY.md`에 있습니다.

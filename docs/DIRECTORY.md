@@ -1,37 +1,79 @@
 # 폴더 구조
 
-최종 수정: 2026-11-22
+최종 수정: 2026-11-22 23:05
 
 ## 현재 구조
 
 ```
 test/
 ├─ README.md            저장소 안내
-├─ index.html           임시 안내 페이지 (분할 작업이 끝나면 새 메인 화면으로 교체)
+├─ index.html           메인 화면 (통합 상담·신청 보조도구 v6.0의 화면 부분)
+├─ css/
+│  └─ main.css          화면용 모양과 인쇄용 모양
+├─ js/                  화면 동작과 계산 로직 (아래 순서대로 불러옴)
+│  ├─ common.js         설정값, 전역 상태 객체 S, 공통 도우미 함수
+│  ├─ api.js            지점 접속 토큰, Worker API 호출
+│  ├─ customer.js       Step 1 고객 기본 정보
+│  ├─ building.js       Step 2 주소 검색, 건축물·토지·대지권
+│  ├─ price.js          공시가격 조회, Step 3 주택가격 산정
+│  ├─ pension.js        Step 4 예상연금
+│  ├─ application.js    Step 5 신청서, 맞춤형 필요서류
+│  └─ main.js           화면 이벤트 연결과 시작 코드
 ├─ docs/                프로젝트 문서
 │  ├─ PROJECT_OVERVIEW.md   프로젝트 개요
 │  ├─ REQUIREMENTS.md       요건정의 (적용 로직 전체)
 │  ├─ DIRECTORY.md          이 문서
 │  └─ CHANGELOG.md          변경 이력
-├─ css/                 화면 모양 (아직 비어 있음)
-├─ js/                  화면 동작과 계산 로직 (아직 비어 있음)
 ├─ forms/               출력 서식 (아직 비어 있음)
 ├─ worker/              Cloudflare Worker 코드 (아직 비어 있음)
 └─ backup/              백업
    └─ 202611222155/     2026-11-22 21:55 시점의 기존 파일 전체
 ```
 
-Git은 빈 폴더를 저장하지 못하므로 `css/`, `js/`, `forms/`, `worker/`, `backup/`에는 안내용 `README.md`를 하나씩 두었습니다.
+Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에는 안내용 `README.md`를 하나씩 두었습니다.
 
-## 폴더별 계획
+## js 파일
 
-아래 파일 이름은 계획이며 아직 만들지 않았습니다. 분할 작업을 시작할 때 확정합니다.
+| 파일 | 내용 | 들어 있는 것 |
+|---|---|---|
+| `js/common.js` | 설정값, 전역 상태 객체 S, 공통 도우미 함수 | 설정값 선언 8개(`API_BASE`, `AREA_TOL`, `S`, `$`, `won`, `digits`, `qs`, `fmtDay`), `showToast`, `banner`, `addBanner`, `fill`, `setPill` |
+| `js/api.js` | 0. API 통신 및 토큰 체크 | `token`, `api`, `checkToken` |
+| `js/customer.js` | 1. 고객 기본 정보 | `ymd6To8`, `targetLumpAmt`, `recalcInchulBalance`, `validYmd6` |
+| `js/building.js` | 2. 주소 검색, 건축물·토지·대지권 요약 | `searchAddrUI`, `resetUnit`, `mapPurpsToHouseType`, `formatStandardHouseAddr`, `computeBestLandRight`, `syncBuildingToApplication`, `normDongKey`, `getBuildingMaxFloor`, `shortStrct`, `buildCompactSummary`, `renderBldBanner`, `startLandFetch`, `pickAddr`, `guessFloor`, `loadUnit` |
+| `js/price.js` | 공시가격 조회, 3. 주택가격 산정 기준 | `calcTargetRatio`, `buildPageOrder`, `startPriceFetch`, `bldPriceSummary`, `isApt`, `sisePrice`, `ratio`, `hsprcConv`, `siseNear`, `bestSise`, `buildPriceOptions`, `applyPrice`, `priceNotes`, `baseLabel` |
+| `js/pension.js` | 4. 예상연금 조회 | `renderPension`, `applyPensionToApplication`, `updateLumpGuideBadge` |
+| `js/application.js` | 5. 신청서 주소 동기화, 맞춤형 필요서류 생성 | `syncAddr`, `isPreferentialNow`, `updateDocList`, `copyDocListText`, `autoFitPage`, `resetAll` |
+| `js/main.js` | 화면 이벤트 연결과 시작 코드 | 함수 선언 없음. 최상위 실행문 28개 |
+
+## 분할 방식
+
+- `backup/202611222155/index.html`(v6.0, 한 파일 약 8.8만 자)을 화면(`index.html`), 모양(`css/main.css`), 동작(`js/` 8개)으로 나눴습니다. 기능은 바꾸지 않았습니다.
+- 함수 선언은 주제별 파일에 두었습니다. 페이지를 열 때 바로 실행되는 코드(이벤트 연결, 초기값 설정)는 원본 순서 그대로 `js/main.js`에 모았습니다. 한 파일일 때는 뒤에 선언한 함수도 앞에서 쓸 수 있었지만, 파일을 나누면 아직 불러오지 않은 파일의 함수는 쓸 수 없기 때문입니다.
+- 빌드 도구와 모듈(import/export)은 쓰지 않습니다. 모든 함수와 변수는 원본과 같이 전역입니다.
+
+## 고칠 때의 규칙
+
+- `index.html`의 script 줄 순서를 바꾸지 않습니다. `common.js`가 맨 앞, `main.js`가 맨 뒤입니다.
+- 새 함수는 해당 주제 파일에 넣습니다. 새 파일을 만들면 `index.html`에서 `main.js` 앞에 script 줄을 추가합니다.
+- 페이지를 열 때 바로 실행되는 코드는 `main.js`에만 둡니다.
+
+## 분할 검증 (2026-11-22)
+
+확인한 것
+
+- 함수 50개, 최상위 실행문 36개, 주석 22개가 원본과 글자 단위로 같습니다.
+- `index.html`은 style과 script 부분을 뺀 나머지가 원본과 같습니다. `css/main.css`는 원본 style 내용과 같습니다.
+- 가상 화면 환경(Node)에서 원본과 분할본을 각각 실행해 동작 기록을 비교했고 같았습니다. 페이지 열기, 이벤트 처리 35개 실행, 함수 50개 호출을 접속 토큰이 없는 경우와 있는 경우로 나눠 비교했습니다.
+
+확인하지 못한 것
+
+- 실제 브라우저에서의 화면 모양과 조회 동작(주소 검색, 시세, 연금 산출, 인쇄)
+
+## 앞으로 채울 폴더
 
 | 폴더 | 들어갈 내용 |
 |---|---|
-| `js/` | 공통 데이터(모든 단계가 함께 쓰는 입력값과 조회 결과), API 호출, 단계별 화면, 계산 로직(연금, 담보방식 추천, 필요서류) |
-| `css/` | 화면용 모양과 인쇄용 모양 |
-| `forms/` | 개인정보 동의서, 확약서, 약정서, 등기서류. 공통 데이터를 읽어 자동으로 채움 |
+| `forms/` | 개인정보 동의서, 확약서, 약정서, 등기서류, 설명서. 공통 데이터를 읽어 자동으로 채움 |
 | `worker/` | Worker 코드. Cloudflare 배포는 별도로 해야 함 |
 
 ## 백업 규칙
