@@ -167,12 +167,21 @@ function siseNear() {
 
 function bestSise() {
   if (!isApt() || !Number($('area').value)) return -1;
-  var best = -1, bd = 1e9;
-  siseNear().forEach(function(x) {
-    var rank = x.d + (x.it.source === '부동산원' ? 0 : 0.001);
-    if (rank < bd) { bd = rank; best = x.i; }
-  });
-  return best;
+  var near = siseNear();
+  if (!near.length) return -1;
+  var pick = function(list) {
+    var best = -1, bd = 1e9;
+    list.forEach(function(x) { if (x.d < bd) { bd = x.d; best = x.i; } });
+    return best;
+  };
+  // 면적 차이 0.1㎡ 이내 타입이 있으면 부동산원 → 국민은행 순서로 고른다 (요건정의 4.7)
+  var exact = near.filter(function(x) { return x.d <= 0.1 + 1e-9; });
+  if (exact.length) {
+    var reb = exact.filter(function(x) { return x.it.source === '부동산원'; });
+    return pick(reb.length ? reb : exact);
+  }
+  // 0.1㎡ 이내 타입이 없으면 가장 가까운 타입을 먼저 골라 두고 상담자가 바꾼다
+  return pick(near);
 }
 
 function buildPriceOptions() {
@@ -197,8 +206,12 @@ function buildPriceOptions() {
   }
   add('manual', '직접 입력 | 상담자 입력값을 평가주택가격으로 사용');
 
+  // 상담자가 직접 고른 기준(S.userBase)은 다른 호를 선택하기 전까지 유지한다
+  var kept = S.userBase && S.base ? sel.querySelector('option[value="' + S.base + '"]') : null;
   var b = bestSise();
-  if (b >= 0) {
+  if (kept && !kept.disabled) {
+    // 유지
+  } else if (b >= 0) {
     S.base = 'sise:' + b;
   } else if (S.price && S.price.hsprc && (S.base === '' || S.base === 'manual')) {
     S.base = 'hsprc';

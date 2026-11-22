@@ -36,7 +36,7 @@ function searchAddrUI() {
 }
 
 function resetUnit() {
-  S.unit = null; S.det = null; S.land = null; S.landRightRatio = ''; S.price = null; S.priceErr = null; S.base = ''; S.officetel = false;
+  S.unit = null; S.det = null; S.land = null; S.landRightRatio = ''; S.price = null; S.priceErr = null; S.base = ''; S.userBase = false; S.officetel = false;
   S.priceSeq++;
   $('area').value = ''; $('area').readOnly = true;
   $('housePrc').value = ''; $('priceBase').innerHTML = ''; $('priceMsg').innerHTML = '';

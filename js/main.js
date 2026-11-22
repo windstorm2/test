@@ -110,6 +110,7 @@ $('area').oninput = function() {
 
 $('priceBase').onchange = function() {
   S.base = this.value;
+  S.userBase = true;
   applyPrice();
   if (S.base === 'manual') $('housePrc').focus();
 };
@@ -117,6 +118,7 @@ $('priceBase').onchange = function() {
 $('lowest').onchange = function() { buildPriceOptions(); applyPrice(); };
 
 $('housePrc').oninput = function() {
+  S.userBase = true;
   if (S.base !== 'manual') { S.base = 'manual'; $('priceBase').value = 'manual'; }
   priceNotes();
   updateDocList();
