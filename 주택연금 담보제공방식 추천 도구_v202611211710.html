@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주택연금 가입방식 비교·추천 도구 어르신 맞춤형 (v3.5)</title>
+    <style>
+        /* [기본 스타일 및 친근한 색상 테마 정의] */
+        :root {
+            --primary: #0A3A60; /* 공사 신뢰를 주는 짙은 남색 */
+            --primary-light: #EBF3FA;
+            --accent: #D9534F; /* 주의 알림용 부드러운 붉은색 */
+            --warning: #F0AD4E; /* 재건축/주의 알림 부드러운 주황색 */
+            --neutral-bg: #F8F9FA;
+            --border-color: #DDE2E5;
+            --text-dark: #2C3E50;
+            --text-muted: #7F8C8D;
+            --trust-color: #27AE60; /* 공사에 이름 맡기기(신탁) 상징 초록색 */
+            --mortgage-color: #2980B9; /* 내 이름 그대로 두기(저당권) 상징 파란색 */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+        body { background-color: #EFF2F5; color: var(--text-dark); padding: 20px; line-height: 1.5; }
+        
+        .container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 20px; }
+        
+        /* 헤더 */
+        header { grid-column: span 2; background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); }
+        .logo-area h1 { font-size: 1.45rem; color: var(--primary); font-weight: bold; }
+        .logo-area span { font-size: 0.85rem; color: var(--text-muted); }
+        
+        .presets { display: flex; gap: 8px; }
+        .preset-btn { background: var(--primary-light); border: 1px solid #BDD5EA; color: var(--primary); padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .preset-btn:hover { background: var(--primary); color: white; }
+
+        /* 좌측 카드 */
+        .input-section { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h2.section-title { font-size: 1.15rem; color: var(--primary); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 2px solid var(--primary-light); display: flex; justify-content: space-between; align-items: center; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 6px; color: #34495E; }
+        .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; background: var(--neutral-bg); }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); background: white; }
+        
+        /* 자녀 여부 체크 UI */
+        .children-status-card { background: var(--neutral-bg); border: 1px dashed var(--border-color); padding: 12px 15px; border-radius: 8px; margin-top: 5px; }
+        .child-checkbox-group { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 5px; }
+        .child-checkbox-group label { display: flex; align-items: center; gap: 6px; font-weight: normal; font-size: 0.85rem; cursor: pointer; color: var(--text-dark); }
+        
+        /* STEP 2: 설문조사 */
+        .survey-item { background: var(--neutral-bg); border: 1px solid #ECEFF1; border-radius: 8px; padding: 15px; margin-bottom: 15px; transition: all 0.2s; }
+        .survey-item:hover { border-color: #BDD5EA; background: #FAFBFD; }
+        .survey-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .survey-q { font-size: 0.9rem; font-weight: bold; color: var(--text-dark); flex: 1; }
+        .survey-weight { font-size: 0.75rem; background: #E2E8F0; padding: 2px 8px; border-radius: 12px; font-weight: bold; color: #4A5568; }
+        
+        /* 5단계 라디오 버튼 그룹 */
+        .radio-scale { display: flex; justify-content: space-between; gap: 4px; margin-top: 8px; }
+        .radio-scale label { flex: 1; display: flex; flex-direction: column; align-items: center; background: white; border: 1px solid var(--border-color); padding: 8px 4px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; text-align: center; color: var(--text-muted); transition: all 0.15s; }
+        .radio-scale input { display: none; }
+        .radio-scale label:hover { border-color: #BDD5EA; background: var(--primary-light); color: var(--primary); }
+        .radio-scale label.selected-left { background: #EBF5FB; border-color: var(--mortgage-color); color: var(--mortgage-color); font-weight: bold; }
+        .radio-scale label.selected-right { background: #EAFAF1; border-color: var(--trust-color); color: var(--trust-color); font-weight: bold; }
+        
+        /* 가중치 셀렉터 */
+        .weight-selector { display: flex; gap: 4px; margin-top: 10px; border-top: 1px solid #ECEFF1; padding-top: 8px; justify-content: flex-end; align-items: center; }
+        .weight-selector span { font-size: 0.75rem; color: var(--text-muted); margin-right: 8px; }
+        .weight-btn { background: white; border: 1px solid var(--border-color); padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; color: var(--text-muted); }
+        .weight-btn.active-priority { background: #FFF3CD; border-color: #FFEBAA; color: #856404; font-weight: bold; }
+        .weight-btn.active-consider { background: #E2E8F0; border-color: #CBD5E0; color: #4A5568; }
+        .weight-btn.active-ignore { background: #F7FAFC; border-color: #E2E8F0; color: #A0AEC0; text-decoration: line-through; }
+
+        .tax-tip { font-size: 0.8rem; color: #3182CE; font-weight: bold; background: #EBF8FF; padding: 6px 12px; border-radius: 6px; margin-top: 8px; border-left: 3px solid #3182CE; }
+
+        /* 우측 카드 (리포트 결과) */
+        .report-section { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid var(--border-color); position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+        
+        /* 추천 결과 */
+        .result-box { text-align: center; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .result-box.trust { background: #EAFAF1; border-color: #27AE60; }
+        .result-box.mortgage { background: #EBF5FB; border-color: #2980B9; }
+        .result-box.neutral { background: #FCF3CF; border-color: #F1C40F; }
+        .result-box.danger { background: #FDEDEC; border-color: #E74C3C; }
+        
+        .result-badge { display: inline-block; padding: 6px 15px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; margin-bottom: 10px; }
+        .trust .result-badge { background: var(--trust-color); color: white; }
+        .mortgage .result-badge { background: var(--mortgage-color); color: white; }
+        .neutral .result-badge { background: #D4AC0D; color: white; }
+        .danger .result-badge { background: #C0392B; color: white; }
+        
+        .result-title { font-size: 1.6rem; font-weight: bold; margin-bottom: 8px; }
+        .trust .result-title { color: var(--trust-color); }
+        .mortgage .result-title { color: var(--mortgage-color); }
+        .neutral .result-title { color: #B7950B; }
+        .danger .result-title { color: #C0392B; }
+        
+        .score-bar-container { background: #E2E8F0; height: 10px; border-radius: 5px; margin: 15px auto; overflow: hidden; width: 80%; position: relative; }
+        .score-bar { height: 100%; transition: width 0.4s ease, background-color 0.4s ease; width: 50%; }
+        
+        /* 알림판 */
+        .alert-card { border-left: 4px solid var(--accent); padding: 12px 15px; border-radius: 8px; font-size: 0.82rem; margin-bottom: 15px; line-height: 1.4; display: none; }
+        .alert-card.redev { background: #FFF5F5; border-color: var(--warning); border-left-color: var(--warning); color: #C0392B; }
+        .alert-card.care { background: #FFF5F5; border-color: var(--accent); border-left-color: var(--accent); color: #B03A2E; }
+        .alert-card.general { background: #FDF9F2; border-color: #F39C12; border-left-color: #F39C12; color: #7E5109; }
+        
+        /* 추천 사유 */
+        .reason-list { margin-bottom: 25px; }
+        .reason-title { font-size: 0.95rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; }
+        .reason-item { padding: 8px 12px; background: var(--neutral-bg); border-left: 3px solid var(--primary); margin-bottom: 8px; font-size: 0.85rem; border-radius: 0 6px 6px 0; }
+        
+        /* 귀속 권리자 추천 가이드 */
+        .trustee-guide-box { background: #F2F9F4; border: 1px solid #D4EFDF; border-radius: 8px; padding: 15px; margin-bottom: 20px; font-size: 0.85rem; }
+        .trustee-guide-title { font-weight: bold; color: var(--trust-color); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+        .print-btn { width: 100%; padding: 12px; background: var(--primary); color: white; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; margin-bottom: 20px; }
+        .print-btn:hover { background: #07253D; }
+        
+        .compare-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 15px; }
+        .compare-table th, .compare-table td { border: 1px solid var(--border-color); padding: 6px 8px; text-align: left; vertical-align: top; }
+        .compare-table th { background: var(--primary-light); color: var(--primary); font-weight: bold; }
+        .compare-table tr:hover { background: #FAFAFA; }
+
+        /* [인쇄 설정] */
+        @media print {
+            body { background: white; padding: 0; }
+            .container { display: block; }
+            .input-section, header, .print-btn, .presets { display: none !important; }
+            .report-section { border: none; box-shadow: none; padding: 0; position: static; max-height: none; overflow: visible; }
+            .compare-table { font-size: 0.7rem; }
+            .compare-table th, .compare-table td { padding: 4px 6px; }
+        }
+        
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+            header { grid-column: span 1; flex-direction: column; gap: 15px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo-area">
+            <h1>주택연금 가입방식 비교·추천 도구 어르신 맞춤형 👤</h1>
+            <span>공사 신탁규정 & 민법상 법정 상속·분할협의 요건 완벽 분석 (v3.5)</span>
+        </div>
+        <div class="presets">
+            <button class="preset-btn" onclick="loadScenario('rehouse')">① 재혼·공동소유</button>
+            <button class="preset-btn" onclick="loadScenario('rebuild')">② 공동소유·재건축</button>
+            <button class="preset-btn" onclick="loadScenario('nochild')">③ 무자녀·단독가구</button>
+            <button class="preset-btn" onclick="loadScenario('normal_solo')">④ 단독소유·공동자녀</button>
+        </div>
+    </header>
+
+    <!-- 좌측 입력 및 설문 -->
+    <div class="input-section">
+        <h2 class="section-title">STEP 1. 기본 정보 및 소유 조건
+            <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted); cursor: pointer;" onclick="resetAll()">🔄 초기화</span>
+        </h2>
+        
+        <div class="grid-2">
+            <div class="form-group">
+                <label>어르신 생년월일</label>
+                <input type="date" id="birthdate" value="1945-03-26" onchange="calculateAll()">
+            </div>
+            <div class="form-group">
+                <label>주택 사용승인일 (준공연도)</label>
+                <input type="date" id="buildDate" value="1992-05-15" onchange="calculateAll()">
+            </div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="form-group">
+                <label>주택 가격 (현재 가치)</label>
+                <select id="housePrice" onchange="calculateAll()">
+                    <option value="100000000">1억 원</option>
+                    <option value="200000000" selected>2억 원</option>
+                    <option value="300000000">3억 원</option>
+                    <option value="500000000">5억 원</option>
+                    <option value="700000000">7억 원</option>
+                    <option value="900000000">9억 원</option>
+                    <option value="1200000000">12억 원</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>적용 주택가격상승률 (연율)</label>
+                <select id="appreciationRate" onchange="calculateAll()">
+                    <option value="" selected>선택 안 함 (계산 제외)</option>
+                    <option value="0.010">1.0%</option>
+                    <option value="0.015">1.5%</option>
+                    <option value="0.020">2.0%</option>
+                    <option value="0.022">2.2% (기본)</option>
+                    <option value="0.025">2.5%</option>
+                    <option value="0.030">3.0%</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label>배우자 존재 여부</label>
+                <select id="hasSpouse" onchange="toggleDependentUI(); calculateAll();">
+                    <option value="Y" selected>있음</option>
+                    <option value="N">없음 (단독 가구)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>주택 소유 구분</label>
+                <select id="ownerType" onchange="calculateAll()">
+                    <option value="solo" selected>가입자 단독 소유</option>
+                    <option value="joint">부부 공동 소유</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>세입자가 있는 경우 (보증금 존재 여부)</label>
+                <select id="existingLease" onchange="calculateAll()">
+                    <option value="N" selected>없음 (또는 보증금 없는 월세만)</option>
+                    <option value="Y_1to4">있음 (단독주택 외 1~4건)</option>
+                    <option value="Y_5over">있음 (5건 이상 - 가입 불가)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 자녀 관계 여부 체크 UI -->
+        <div class="form-group" style="grid-column: span 2;">
+            <label>자녀 구성 및 법적 일치 상태 (단순 여부 체크)</label>
+            <div class="children-status-card">
+                <div class="child-checkbox-group">
+                    <label>
+                        <input type="checkbox" id="ownerHasChild" checked onchange="toggleDependentUI(); calculateAll();"> 신청인 자녀 있음
+                    </label>
+                    <label id="spouseChildUI">
+                        <input type="checkbox" id="spouseHasChild" checked onchange="toggleDependentUI(); calculateAll();"> 배우자 자녀 있음
+                    </label>
+                </div>
+                
+                <div id="childEqualityCard" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #DDE2E5; display: flex; align-items: center; gap: 15px;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">신청인과 배우자의 자녀가 모두 동일(일치)합니까? (공동자녀)</span>
+                    <div style="display: flex; gap: 12px;">
+                        <label style="font-weight: normal; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="radio" name="childIsEqual" id="childEqualY" value="Y" checked onchange="calculateAll()"> 예 (공동 자녀)
+                        </label>
+                        <label style="font-weight: normal; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="radio" name="childIsEqual" id="childEqualN" value="N" onchange="calculateAll()"> 아니오 (비공동 자녀)
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title" style="margin-top: 30px;">STEP 2. 신청인 성향 및 선호도 (5단계 척도)</h2>
+        <div id="surveyContainer"></div>
+    </div>
+
+    <!-- 우측 결과 및 비교표 -->
+    <div class="report-section" id="printArea">
+        <div class="result-box" id="resultCard">
+            <div class="result-badge" id="resultBadge">종합 진단</div>
+            <div class="result-title" id="resultTitle">결과 분석 중...</div>
+            <div id="scoreLabel" style="font-size: 0.82rem; font-weight: bold; margin-top: 5px;"></div>
+            
+            <div class="score-bar-container">
+                <div class="score-bar" id="scoreBar"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); width: 85%; margin: 0 auto;">
+                <span>내 이름 그대로 두기 최적</span>
+                <span>자율 선택</span>
+                <span>공사에 이름 맡기기 최적</span>
+            </div>
+        </div>
+
+        <!-- 법률 조건에 따른 알림 배너들 -->
+        <div class="alert-card redev" id="redevelopmentAlert"></div>
+        <div class="alert-card care" id="specialCareAlert"></div>
+        <div class="alert-card general" id="infoAlert"></div>
+
+        <!-- 핵심 추천 사유 -->
+        <div class="reason-list">
+            <div class="reason-title">💡 맞춤형 추천 사유 및 배경 안내</div>
+            <div id="reasonContent"></div>
+        </div>
+
+        <!-- 신탁 시 귀속권리자 가이드 (신탁 시에만 유용하게 표시) -->
+        <div class="trustee-guide-box" id="trusteeGuideBox">
+            <div class="trustee-guide-title">🛡️ [공사에 이름 맡기기(신탁) 약정 시] 나중에 남은 돈을 받을 사람 지정 방법</div>
+            <div id="trusteeGuideContent">사유 산출 중...</div>
+        </div>
+
+        <button class="print-btn" onclick="window.print()">🖨️ 고객 안내지 인쇄 / PDF 저장</button>
+
+        <!-- 정밀 비교표 -->
+        <h3 style="font-size: 0.9rem; margin-bottom: 8px; color: var(--primary); border-left: 3px solid var(--primary); padding-left: 8px;">가입방식별 주요 특징 비교표 (공사 표준)</h3>
+        <table class="compare-table">
+            <thead>
+                <tr>
+                    <th style="width: 18%">구분</th>
+                    <th style="width: 41%">내 이름 그대로 두기 (저당권방식)</th>
+                    <th style="width: 41%">공사에 이름 맡기기 (신탁방식)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><b>집 주인 명의</b></td>
+                    <td>어르신 본인의 이름 유지<br>(근저당권 설정)</td>
+                    <td>공사(수탁자)로 이름 이전<br>(신탁등기 / 거주·관리·비용 부담은 어르신 동일)</td>
+                </tr>
+                <tr>
+                    <td><b>배우자 승계</b></td>
+                    <td>사망 후 배우자 상속등기 필요<br><b>(자녀 전원 동의가 필요하여 승계가 어려울 수 있음)</b></td>
+                    <td>자녀 동의나 복잡한 등기 없이 <b>배우자에게 자동 승계</b></td>
+                </tr>
+                <tr>
+                    <td><b>부부 공동이름</b></td>
+                    <td>사망자의 50% 지분에 대한 <b>상속포기 및 동의</b> 필요 (미이행 시 연금 즉시 중단)</td>
+                    <td>지분 이전 및 자녀 동의 없이 생존 배우자에게 <b>위탁자 지위 100% 자동 승계</b></td>
+                </tr>
+                <tr>
+                    <td><b>보증금 임대</b></td>
+                    <td><b>불가</b> (보증금 없는 월세만 일부 가능)</td>
+                    <td><b>가능</b> (단독 외 최대 4건, 보증금 예치 조건)</td>
+                </tr>
+                <tr>
+                    <td><b>가입 초기 세금</b></td>
+                    <td>50% 감면(~'27년)되나 <b>가입자 납부액 발생</b><br>(등기 면허세, 지방교육세 등)</td>
+                    <td>등록면허세 등 <b>공사 전액 지원 (가입자 부담 없음)</b></td>
+                </tr>
+                <tr>
+                    <td><b>재건축·재개발</b></td>
+                    <td><b>명의 유지 가능</b> (상대적으로 절차 편리)</td>
+                    <td><b>향후 저당권 방식으로 전환 필요</b></td>
+                </tr>
+                <tr>
+                    <td><b>사후 잔여 정산</b></td>
+                    <td>법정상속인에게 귀속 (대습상속 O)</td>
+                    <td>가입자가 지정한 <b>귀속권리자</b>에게 지급 (대습상속 X)</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 15px; text-align: center; line-height: 1.4;">
+            본 진단 결과는 입력된 가치관과 법정 상속 관계를 바탕으로 산출된 예측 참고서입니다.<br>
+            실제 주택 가격 변동, 개별 세무 요건, 지자체 판단 및 한국주택금융공사 정식 심사 시 최종 결과는 달라질 수 있습니다.
+        </p>
+    </div>
+</div>
+
+<script>
+    // [기본 데이터 및 기대여명 정의] (2024년 통계청 간이생명표 기반)
+    const LIFE_EXPECTANCY = {
+        60: 24, 61: 23, 62: 22, 63: 21, 64: 21, 65: 20, 66: 19, 67: 18, 68: 18, 69: 17,
+        70: 16, 71: 15, 72: 14, 73: 13, 74: 13, 75: 12, 76: 11, 77: 11, 78: 10, 79: 9,
+        80: 9, 81: 8, 82: 8, 83: 7, 84: 7, 85: 6, 86: 6, 87: 5, 88: 5, 89: 4, 90: 4
+    };
+
+    // 설문 기본 문항 정의
+    const surveyData = [
+        { id: 1, q: "1. 등기상 어르신 본인의 명의 유지가 얼마나 중요한가요?", left: "매우 중요 (내 이름 유지 필수)", right: "전혀 중요하지 않음 (공사에 이름 이전도 무방)", defaultWeight: 1 },
+        { id: 2, q: "2. 배우자에게 연금이 자녀 동의 없이 '자동'으로 이어지는 것이 얼마나 중요한가요?", left: "전혀 중요하지 않음 (자녀 동의 얻을 수 있음)", right: "매우 중요 (자동 승계 필수 필요)", defaultWeight: 1, spouseOnly: true },
+        { id: 3, q: "3. 향후 집의 일부 또는 전부를 '보증금 있는' 전·월세로 임대할 계획이 있으신가요?", left: "전혀 없음 (공실 또는 보증금 없는 월세만)", right: "반드시 임대 계획 있음", defaultWeight: 1 },
+        { id: 4, q: "4. 가입할 때 내는 초기 세금(약 100만 원 내외) 부담을 줄이는 것이 중요하십니까?", left: "부담 없음 (초기 세금 직접 납부 무방)", right: "매우 중요 (초기비용 0원 선호)", defaultWeight: 1, hasDynamicTip: true },
+        { id: 5, q: "5. 나중에 부부가 모두 돌아가시고 남은 돈을 돌려받을 때 어떤 방안을 더 중요하게 보십니까?", left: "가족이 직접 주택 처분 및 상속", right: "믿을 수 있는 사람을 미리 지정해두어 공사에서 직접 정산", defaultWeight: 1 },
+        { id: 6, q: "6. 어르신의 연세와 주택 나이를 고려하여, 재개발/재건축 추진 시 명의 변경 없이 편리하게 유지하는 것이 얼마나 중요하신가요?", left: "매우 중요 (정비사업 예상 및 대처 필수)", right: "전혀 관심 없음 (상관없음)", defaultWeight: 1 }
+    ];
+
+    let answers = {};
+    let weights = {};
+
+    function initSurvey() {
+        const container = document.getElementById('surveyContainer');
+        container.innerHTML = '';
+
+        surveyData.forEach(item => {
+            answers[item.id] = 0;
+            weights[item.id] = item.defaultWeight;
+
+            const card = document.createElement('div');
+            card.className = 'survey-item';
+            card.id = `survey-item-${item.id}`;
+
+            let dynamicTipHtml = item.hasDynamicTip ? `<div id="taxDynamicTip" class="tax-tip"></div>` : '';
+
+            card.innerHTML = `
+                <div class="survey-header">
+                    <span class="survey-q">${item.q}</span>
+                    <span class="survey-weight" id="weight-label-${item.id}">가중치: 고려</span>
+                </div>
+                ${dynamicTipHtml}
+                <div class="radio-scale">
+                    <label id="lbl-${item.id}-m2"><input type="radio" name="q-${item.id}" value="-2" onchange="setAnswer(${item.id}, -2)"><span>-2</span><small style="display:block; font-size:0.65rem;">${item.left}</small></label>
+                    <label id="lbl-${item.id}-m1"><input type="radio" name="q-${item.id}" value="-1" onchange="setAnswer(${item.id}, -1)"><span>-1</span></label>
+                    <label id="lbl-${item.id}-0" class="selected-left selected-right"><input type="radio" name="q-${item.id}" value="0" checked onchange="setAnswer(${item.id}, 0)"><span>0</span><small style="display:block; font-size:0.65rem;">보통</small></label>
+                    <label id="lbl-${item.id}-p1"><input type="radio" name="q-${item.id}" value="1" onchange="setAnswer(${item.id}, 1)"><span>+1</span></label>
+                    <label id="lbl-${item.id}-p2"><input type="radio" name="q-${item.id}" value="2" onchange="setAnswer(${item.id}, 2)"><span>+2</span><small style="display:block; font-size:0.65rem;">${item.right}</small></label>
+                </div>
+                <div class="weight-selector">
+                    <span>중요도 가중치:</span>
+                    <button class="weight-btn" id="wbtn-${item.id}-2" onclick="setWeight(${item.id}, 2)">우선고려</button>
+                    <button class="weight-btn active-consider" id="wbtn-${item.id}-1" onclick="setWeight(${item.id}, 1)">고려</button>
+                    <button class="weight-btn" id="wbtn-${item.id}-0" onclick="setWeight(${item.id}, 0)">고려안함</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // UI 활성화/비활성화
+    function toggleDependentUI() {
+        const hasSpouse = document.getElementById('hasSpouse').value;
+        const spouseChildUI = document.getElementById('spouseChildUI');
+        
+        if (hasSpouse === 'Y') {
+            spouseChildUI.style.display = 'inline-flex';
+            document.getElementById('survey-item-2').style.display = 'block';
+            document.getElementById('ownerType').disabled = false;
+            if (weights[2] === 0) setWeight(2, 1);
+        } else {
+            spouseChildUI.style.display = 'none';
+            document.getElementById('spouseHasChild').checked = false;
+            document.getElementById('survey-item-2').style.display = 'none';
+            document.getElementById('ownerType').value = 'solo';
+            document.getElementById('ownerType').disabled = true;
+            setWeight(2, 0);
+        }
+
+        const ownerHasChild = document.getElementById('ownerHasChild').checked;
+        const spouseHasChild = document.getElementById('spouseHasChild').checked;
+        const childEqualityCard = document.getElementById('childEqualityCard');
+
+        if (hasSpouse === 'Y' && ownerHasChild && spouseHasChild) {
+            childEqualityCard.style.display = 'flex';
+        } else {
+            childEqualityCard.style.display = 'none';
+        }
+    }
+
+    function setWeight(id, w) {
+        weights[id] = w;
+        const label = document.getElementById(`weight-label-${id}`);
+        const labelText = w === 2 ? "가중치: 우선고려 (2배)" : w === 1 ? "가중치: 고려" : "가중치: 고려안함 (제외)";
+        label.innerText = labelText;
+
+        document.getElementById(`wbtn-${id}-2`).className = w === 2 ? "weight-btn active-priority" : "weight-btn";
+        document.getElementById(`wbtn-${id}-1`).className = w === 1 ? "weight-btn active-consider" : "weight-btn";
+        document.getElementById(`wbtn-${id}-0`).className = w === 0 ? "weight-btn active-ignore" : "weight-btn";
+
+        calculateAll();
+    }
+
+    function setAnswer(id, val) {
+        answers[id] = val;
+        
+        ['m2', 'm1', '0', 'p1', 'p2'].forEach(key => {
+            document.getElementById(`lbl-${id}-${key}`).className = "";
+        });
+        
+        if (val < 0) {
+            document.getElementById(`lbl-${id}-${val === -2 ? 'm2' : 'm1'}`).className = "selected-left";
+        } else if (val > 0) {
+            document.getElementById(`lbl-${id}-${val === 2 ? 'p2' : 'p1'}`).className = "selected-right";
+        } else {
+            document.getElementById(`lbl-${id}-0`).className = "selected-left selected-right";
+        }
+
+        calculateAll();
+    }
+
+    // [평가 및 판정 핵심 로직]
+    function calculateAll() {
+        const birthInput = document.getElementById('birthdate').value;
+        const buildInput = document.getElementById('buildDate').value;
+        const housePrice = parseInt(document.getElementById('housePrice').value);
+        const appreciationRate = document.getElementById('appreciationRate').value;
+        const hasSpouse = document.getElementById('hasSpouse').value;
+        const ownerType = document.getElementById('ownerType').value;
+        const existingLease = document.getElementById('existingLease').value;
+        const ownerHasChild = document.getElementById('ownerHasChild').checked;
+        const spouseHasChild = document.getElementById('spouseHasChild').checked;
+        const childIsEqual = document.querySelector('input[name="childIsEqual"]:checked') ? document.querySelector('input[name="childIsEqual"]:checked').value : 'N';
+
+        if (!birthInput || !buildInput) return;
+
+        const today = new Date();
+        const birthDate = new Date(birthInput);
+        const buildDate = new Date(buildInput);
+
+        // 만나이
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+
+        // 경과연수
+        const elapsedYears = today.getFullYear() - buildDate.getFullYear();
+
+        // 기대여명
+        let lifeExp = 10;
+        if (age < 60) lifeExp = 25;
+        else if (age > 90) lifeExp = 3;
+        else lifeExp = LIFE_EXPECTANCY[age] || 10;
+
+        // 예상 설정세금 계산식 (50% 감면 고려)
+        const taxTipEl = document.getElementById('taxDynamicTip');
+        if (!appreciationRate) {
+            taxTipEl.innerText = `💡 적용 주택가격상승률을 선택하시면, 향후 예상되는 세금을 미리 확인해 보실 수 있습니다.`;
+        } else {
+            const appreciationRateNum = parseFloat(appreciationRate);
+            const months = Math.max(0, (101 - age) * 12);
+            const multiplier = Math.pow(1 + (appreciationRateNum / 12), months);
+            const roundedFutureValue = Math.floor((housePrice * multiplier) / 1000000) * 1000000;
+            const estimatedTax = roundedFutureValue * 0.0012;
+            const formatTax = Math.round(estimatedTax).toLocaleString() + '원';
+            taxTipEl.innerText = `💡 이 조건 기준 저당권 예상 등록면허세 및 지방교육세: 약 ${formatTax} (50% 감면 기준 예상치로 변동 가능)`;
+        }
+
+        // --- 재건축 판단 ---
+        const isRedevPossible = (elapsedYears + lifeExp) > 30;
+        const isRedevHigh = (elapsedYears + lifeExp) > 40;
+
+        const redevAlert = document.getElementById('redevelopmentAlert');
+        if (isRedevHigh) {
+            redevAlert.className = "alert-card redev";
+            redevAlert.style.display = 'block';
+            redevAlert.innerHTML = `⚠️ <b>[재개발/재건축 가능성 높음]</b> 어르신의 연세와 주택 나이를 고려할 때, 향후 거주하시는 동안 재개발이나 재건축이 진행될 가능성이 높습니다. 이 경우 내 이름 그대로 두는 방식이 나중에 사업 진행에 더 편할 수 있습니다.`;
+            // 재건축 문항 가중치 보정
+            if (weights[6] === 1) setWeight(6, 2);
+        } else if (isRedevPossible) {
+            redevAlert.className = "alert-card general";
+            redevAlert.style.display = 'block';
+            redevAlert.innerHTML = `💡 <b>[재개발/재건축 가능성 있음]</b> 어르신의 연세와 주택 나이를 고려할 때, 향후 거주하시는 동안 재개발이나 재건축이 진행될 가능성이 있습니다.`;
+        } else {
+            redevAlert.style.display = 'none';
+        }
+
+        // --- 법률 관계 및 분쟁 리스크 분석 (CASE 판정) ---
+        let spouseRisk = false;
+        let multiFamily = false;
+        let noChildFamily = false;
+        const careAlert = document.getElementById('specialCareAlert');
+        const infoAlert = document.getElementById('infoAlert');
+
+        careAlert.style.display = 'none';
+        infoAlert.style.display = 'none';
+
+        if (hasSpouse === 'Y') {
+            if (!ownerHasChild && !spouseHasChild) {
+                // CASE 1: 무자녀 가구
+                noChildFamily = true;
+                infoAlert.className = "alert-card general";
+                infoAlert.style.display = 'block';
+                infoAlert.innerHTML = `🍀 <b>[자녀가 없는 부부]</b> 나중에 두 분 모두 돌아가셨을 때, 남은 돈을 물려받을 먼 친척(형제, 조카 등)이 너무 많으면 서류를 다 모으기가 매우 어렵습니다. 미리 믿을 수 있는 사람 1명을 지정해두는 '공사에 맡기기(신탁)' 방식이 나중 처리에 아주 수월합니다.`;
+            } else if (ownerHasChild && spouseHasChild && childIsEqual === 'N') {
+                // CASE 5: 비공동 자녀
+                spouseRisk = true;
+                careAlert.className = "alert-card care";
+                careAlert.style.display = 'block';
+                careAlert.innerHTML = `⚠️ <b>[서로 자녀가 다르거나 한쪽에만 있는 경우]</b> 나중에 한 분이 먼저 돌아가셨을 때, 배우자가 연금을 계속 받으려면 다른 자녀들 모두의 도장(동의서)이 필요합니다. 만약 사이가 서먹하거나 연락이 안 되면 연금이 끊길 수 있습니다. 동의 없이 배우자에게 연금이 바로 이어지는 '공사에 맡기기(신탁)' 방식이 안전합니다.`;
+            } else if (!ownerHasChild && spouseHasChild) {
+                // CASE 3: 배우자만 자녀 있음
+                spouseRisk = true;
+                careAlert.className = "alert-card care";
+                careAlert.style.display = 'block';
+                careAlert.innerHTML = `⚠️ <b>[배우자만 자녀 있음]</b> 가입자 어르신 사망 시 공동 상속인 지위나 명의 이전과 관련하여 서류 처리가 복잡해질 수 있습니다. 자녀들의 동의 절차가 필요 없는 '공사에 맡기기(신탁)' 방식이 권장됩니다.`;
+            } else if (ownerHasChild && !spouseHasChild) {
+                // CASE 2: 신청인만 자녀 있음
+                multiFamily = true;
+                careAlert.className = "alert-card care";
+                careAlert.style.display = 'block';
+                careAlert.innerHTML = `⚠️ <b>[신청인만 자녀 있음]</b> 가입자 어르신 사망 시 배우자에게 연금을 물려주는 과정에서 자녀들의 상속권 포기 동의 요건을 채우기 어려울 수 있습니다. 동의 없이 배우자에게 연금이 바로 이어지는 '공사에 맡기기(신탁)' 방식이 안전합니다.`;
+            } else {
+                // CASE 4: 공동 자녀
+                if (ownerType === 'joint') {
+                    infoAlert.className = "alert-card general";
+                    infoAlert.style.display = 'block';
+                    infoAlert.innerHTML = `🏠 <b>[공동 자녀 & 부부 공동 이름]</b> 한 분이 먼저 돌아가셨을 때, 가입되어 있던 절반의 집 지분을 생존한 배우자에게 넘겨주려면 자녀들 모두의 도장과 서류가 필요합니다. 자녀 중 한 명이라도 서류를 못 내면 연금이 중단될 수 있습니다. 자녀들의 동의가 필요 없는 '공사에 맡기기(신탁)' 방식이 안전합니다.`;
+                }
+            }
+        } else {
+            // 배우자 없음
+            if (ownerHasChild) {
+                infoAlert.className = "alert-card general";
+                infoAlert.style.display = 'block';
+                infoAlert.innerHTML = `👤 <b>[배우자 없는 단독가구 & 자녀 존재]</b> 배우자에게 연금을 물려주는 절차가 필요 없습니다. 사망 후 자녀들이 집을 물려받아 처분 및 남은 돈을 정산하는 과정이 명확하므로, 내 이름을 그대로 유지하는 방식이 더 권장됩니다.`;
+            } else {
+                infoAlert.className = "alert-card care";
+                infoAlert.style.display = 'block';
+                infoAlert.innerHTML = `⚠️ <b>[배우자 없음 & 무자녀]</b> 사망 시 법정 상속인 범위가 먼 친척(형제자매·조카 등)으로 넓어져 처분과 정산에 관한 동의를 구하는 과정이 매우 복잡해질 수 있습니다. 믿을 수 있는 사람 1인을 사전에 지정해두고 원스톱으로 정산하는 '공사에 맡기기(신탁)' 방식이 권장됩니다.`;
+            }
+        }
+
+        // --- 최종 판정 지수 연산 ---
+        let totalScore = 0;
+        let sumWeights = 0;
+
+        surveyData.forEach(item => {
+            if (item.spouseOnly && hasSpouse === 'N') return;
+
+            let w = weights[item.id];
+            let s = answers[item.id];
+
+            // 보정: CASE 1 무자녀 가구 5번 상속 방식 신탁 우대
+            if (item.id === 5 && hasSpouse === 'Y' && !ownerHasChild && !spouseHasChild) {
+                s = Math.max(s, 1);
+            }
+
+            totalScore += s * w;
+            sumWeights += Math.abs(w);
+        });
+
+        let finalIndex = 0;
+        if (sumWeights > 0) {
+            finalIndex = Math.round((totalScore / (sumWeights * 2)) * 100);
+        }
+
+        // HARD FILTER: 임대차 5건 이상
+        if (existingLease === 'Y_5over') {
+            displayFinalResult("가입 불가 (제도 제한)", 0, "보증금 임대차가 5건 이상인 다세대/단독주택 등은 현재 주택금융공사 규정상 가입 및 진행에 제한이 있습니다. 보증금 건수를 축소하거나 지자체/공사 추가 확인이 필요합니다.", "danger", "#E74C3C");
+            document.getElementById('trusteeGuideBox').style.display = 'none';
+            return;
+        }
+
+        // 단독 가구 예외 필터링 (배우자 없고 자녀 있을 때 저당권 우선)
+        if (hasSpouse === 'N' && ownerHasChild) {
+            // 강제 조정: 지수와 관계없이 저당권 추천
+            finalIndex = Math.min(finalIndex, -40);
+        }
+
+        // --- 최종 진단 및 안내 메커니즘 ---
+        let recommend = "";
+        let barColor = "#E2E8F0";
+        let cardClass = "neutral";
+        let resultReasonHTML = "";
+        let trusteeGuideHTML = "";
+
+        // 귀속권리자 가이드라인 조합
+        const guideBox = document.getElementById('trusteeGuideBox');
+        guideBox.style.display = 'block';
+
+        if (finalIndex < -20) {
+            recommend = "저당권방식 권장";
+            barColor = "var(--mortgage-color)";
+            cardClass = "mortgage";
+            resultReasonHTML = `
+                <div class="reason-item">👤 <b>단독 소유 명의 보존:</b> 등기부상 집을 온전히 본인 명의로 보존하여 관리하는 것을 더 선호하십니다.</div>
+                <div class="reason-item">📐 <b>정비사업 절차상 편리:</b> 거주하시는 동안 재개발·재건축 확정 시 등기 말소 및 명의 해지 등의 행정적 전환 절차가 필요 없어 유연합니다.</div>
+                <div class="reason-item">📉 <b>상속 절차 유리:</b> 사후 가족들이 집을 상속받아 직접 처분하거나 정리할 때, 상속 요건에 따라 취득세 등 세금에서 조금 더 혜택을 볼 수 있습니다.</div>
+            `;
+            if (hasSpouse === 'N' && ownerHasChild) {
+                resultReasonHTML += `<div class="reason-item font-weight-bold">👤 <b>가족 승계 걱정 없음:</b> 연금을 물려줄 배우자가 없으므로, 자녀들이 안전하게 사후 처분 및 남은 재산을 상속받도록 저당권방식이 더 편리합니다.</div>`;
+            }
+        } else if (finalIndex > 20) {
+            recommend = "신탁방식 권장";
+            barColor = "var(--trust-color)";
+            cardClass = "trust";
+            resultReasonHTML = `
+                <div class="reason-item">🛡 "<b>배우자 법정 승계권 보호:</b> 자녀들의 서류 동의 없이, 가입자 사망 시 남은 배우자에게 평생 연금과 거주권이 자동으로 안전하게 이어집니다.</div>
+                <div class="reason-item">💸 "<b>초기 세금 0원:</b> 처음 가입할 때 내는 등록면허세 및 등기 비용 등 백만 원 내외의 세금을 공사에서 지원하므로 초기 비용이 전혀 들지 않습니다.</div>
+                <div class="reason-item">🏠 "<b>보증금 전·월세 임대 가능:</b> 본래 가입방식에서는 불가능한 보증금 있는 방 한 칸 등의 임대차를 활용해 노후에 추가적인 안정적인 소득을 낼 수 있습니다.</div>
+            `;
+        } else {
+            recommend = "신탁방식 권장 (자율선택 가능)";
+            barColor = "#F1C40F";
+            cardClass = "neutral";
+            resultReasonHTML = `
+                <div class="reason-item">🌟 <b>실익 중심의 제안:</b> 선호도가 평행을 이루는 구간이나, 나중에 자녀들과의 서류 조율 번거로움을 줄이고 100만 원 상당의 가입 초기 세금 혜택을 제공하는 신탁방식이 여러모로 유용할 수 있습니다.</div>
+                <div class="reason-item">⚙️ <b>유연한 전환 가능:</b> 우선 세금 부담 없이 신탁으로 가입하여 연금을 받으시다가, 향후 재건축 등이 본격적으로 추진되는 시점에 필요하다면 저당권방식으로 다시 변경하실 수도 있어 안전합니다.</div>
+            `;
+        }
+
+        // 귀속권리자 맞춤형 권장사항 빌드
+        if (!ownerHasChild && !spouseHasChild) {
+            // CASE 1: 무자녀
+            trusteeGuideHTML = `
+                • <b>지정 대상 조건:</b> 자녀가 없는 경우이므로 규정상 가입자의 3촌 이내 혈족, 2촌 이내 인척 등에서 지정 가능합니다.<br>
+                • ❌ <b>포괄지정 주의:</b> "형제자매 전원" 등의 여러 명을 동시에 지정하면 사후 수십 명에 달하는 친척의 동의와 개인정보를 다 모아야 해서 정산이 극도로 지연됩니다.<br>
+                • ⭕ <b>개별 1인 지정 강력 권장:</b> 가장 믿을 수 있는 조카, 지인 1인을 <b>사후에 남은 돈을 받을 사람 (개별지정)</b>으로 지정해두시면, 공사에서 아주 신속하게 주택을 처분한 후 1인에게 남은 돈을 지급하여 마무리됩니다.
+            `;
+        } else if (ownerHasChild && !spouseHasChild) {
+            // CASE 2: 신청인만 자녀 있음
+            trusteeGuideHTML = `
+                • <b>지정 대상 조건:</b> 신청인의 친자녀가 있는 상태입니다.<br>
+                • ⭕ <b>가입자 친자녀 개별 지정 권장:</b> 사후에 배우자 거주를 보장하면서도, 집이 타가 친정 가문으로 넘어가는 것을 예방하려면 가입자의 친자녀를 <b>사후에 남은 돈을 받을 사람 (개별지정)</b>으로 지정(또는 자녀 전원 포괄지정)해 두시는 것이 상속 권리 경쟁을 원천 방지하여 가장 명확합니다.
+            `;
+        } else if (!ownerHasChild && spouseHasChild) {
+            // CASE 3: 배우자만 자녀 있음
+            trusteeGuideHTML = `
+                • <b>지정 대상 조건:</b> 가입자의 자녀가 없으므로 "자녀 없는 경우" 규정이 적용됩니다.<br>
+                • ⭕ <b>배우자 자녀 개별 지정 권장:</b> 사후 배우자의 자녀(전혼 자녀)를 귀속권리자로 삼고자 한다면 <b>사후에 남은 돈을 받을 사람 (개별지정-배우자 자녀 1인)</b>를 지정하여, 시댁의 법적 상속 간섭권이나 분쟁을 완전히 배제하고 배우자 거주권과 사후 잔여 가치를 보전할 수 있습니다.
+            `;
+        } else if (ownerHasChild && spouseHasChild && childIsEqual === 'N') {
+            // CASE 5: 비공동 자녀
+            trusteeGuideHTML = `
+                • <b>지정 대상 조건:</b> 양가에 자녀들이 각각 존재합니다.<br>
+                • ❌ <b>완전 소외 방지 조언:</b> "자녀가 있는 경우" 규정에 의해 지정해야 하므로 양측 가문 중 한쪽이 배제되어 사후 갈등이 일어나기 쉽습니다.<br>
+                • ⭕ <b>양가 분할 지정 권장:</b> 부부 사망 후 남은 재산을 양쪽 자녀 모두에게 고르게 나누어주어 분쟁을 없애려면, 가입자 자녀 1인과 배우자 자녀 1인을 **[비율 공동 지정]** 하여, 양가 어느 쪽도 배제되어 극단적 다툼이 발생하지 않도록 조율할 것을 강력히 권장합니다.
+            `;
+        } else {
+            // CASE 4: 공동 자녀
+            trusteeGuideHTML = `
+                • <b>지정 대상 조건:</b> 공동 자녀들이 있습니다.<br>
+                • ⭕ <b>자녀 전원 포괄지정 또는 개별 1인 지정:</b> 갈등 소지가 없는 공동 자녀들이므로 <b>[자녀 전원 공동지정]</b>이 법적으로 무난하나, 전원의 서류(성명/주민번호) 등기 등록에 따른 절차를 간소화하려면 자녀 중 신뢰받는 1인을 대표로 <b>사후에 남은 돈을 받을 사람 (개별지정)</b>로 정하는 것도 유용합니다.
+            `;
+        }
+
+        if (hasSpouse === 'N') {
+            trusteeGuideHTML = `
+                • <b>단독가구 기준 지정:</b> 승계 대상이 없고 단독 처분되므로, 가입자 사망 시 상속을 받을 자녀(자녀가 있는 경우)를 <b>사후에 남은 돈을 받을 사람 (개별지정)</b>으로 지정하거나, 자녀가 없다면 수십 명의 친척 추적을 원천 방지하기 위해 신뢰하는 1인(조카·지인 등)을 <b>[개별지정]</b> 하십시오. 여러 명 지정은 사후 처리상 방해 요인만 가중시킵니다.
+            `;
+        }
+
+        document.getElementById('trusteeGuideContent').innerHTML = trusteeGuideHTML;
+        displayFinalResult(recommend, finalIndex, resultReasonHTML, cardClass, barColor);
+    }
+
+    function displayFinalResult(title, score, reasonHTML, cardClass, barColor) {
+        const card = document.getElementById('resultCard');
+        const badge = document.getElementById('resultBadge');
+        const titleEl = document.getElementById('resultTitle');
+        const scoreLabel = document.getElementById('scoreLabel');
+        const scoreBar = document.getElementById('scoreBar');
+        const reasonEl = document.getElementById('reasonContent');
+
+        card.className = `result-box ${cardClass}`;
+        if (cardClass === "mortgage") badge.innerText = "저당권방식 권장";
+        else if (cardClass === "trust") badge.innerText = "신탁방식 권장";
+        else if (cardClass === "neutral") badge.innerText = "자율 선택 가능";
+        else badge.innerText = "가입 제한";
+
+        titleEl.innerText = title;
+        scoreLabel.innerText = cardClass === "danger" ? "" : `가중 종합 지수: ${score > 0 ? '+' : ''}${score}점 (범위: -100 ~ +100)`;
+        
+        // 지수 바
+        const percent = cardClass === "danger" ? 0 : ((score + 100) / 200) * 100;
+        scoreBar.style.width = `${percent}%`;
+        scoreBar.style.backgroundColor = barColor;
+
+        reasonEl.innerHTML = reasonHTML;
+    }
+
+    // [시나리오 프리셋 정의]
+    function loadScenario(type) {
+        resetAll();
+        if (type === 'rehouse') {
+            // ① 재혼 가정 & 부부 공동 소유
+            document.getElementById('birthdate').value = "1953-04-12";
+            document.getElementById('buildDate').value = "2002-09-20";
+            document.getElementById('ownerType').value = "joint";
+            document.getElementById('ownerHasChild').checked = true;
+            document.getElementById('spouseHasChild').checked = true;
+            document.getElementById('childEqualN').checked = true; // 비공동자녀
+            
+            setAnswer(1, 0); // 명의유지 보통
+            setAnswer(2, 2); // 승계 매우중요
+            setWeight(2, 2); // 우선고려
+            setAnswer(3, -1);
+            setAnswer(4, 1);
+            setAnswer(5, 0);
+            setAnswer(6, 0);
+        } else if (type === 'rebuild') {
+            // ② 부부 공동 소유 & 오래된 단지 (재건축 예상)
+            document.getElementById('birthdate').value = "1951-08-05";
+            document.getElementById('buildDate').value = "1984-11-12"; // 오래된 단지
+            document.getElementById('ownerType').value = "joint";
+            document.getElementById('ownerHasChild').checked = true;
+            document.getElementById('spouseHasChild').checked = true;
+            document.getElementById('childEqualY').checked = true;
+            
+            setAnswer(1, -2); // 명의 매우중요
+            setWeight(1, 2);  // 우선고려
+            setAnswer(2, 1);
+            setAnswer(3, -1);
+            setAnswer(4, -1);
+            setAnswer(5, -2); // 자가처분/상속 중요
+            setWeight(5, 2);  // 우선고려
+            setAnswer(6, -2); // 재개발 대비 필수
+            setWeight(6, 2);  // 우선고려
+        } else if (type === 'nochild') {
+            // ③ 무자녀 & 단독가구
+            document.getElementById('birthdate').value = "1948-02-15";
+            document.getElementById('buildDate').value = "2008-05-15";
+            document.getElementById('hasSpouse').value = "N"; // 단독
+            document.getElementById('ownerHasChild').checked = false;
+            
+            setAnswer(1, 1);
+            setAnswer(3, 0);
+            setAnswer(4, 2);  // 초기 세금 중요
+            setAnswer(5, 2);  // 지인지정 희망
+            setWeight(5, 2);  // 우선고려
+            setAnswer(6, 0);
+        } else if (type === 'normal_solo') {
+            // ④ 가입자 단독소유 & 공동자녀 (일반적 상황)
+            document.getElementById('birthdate').value = "1946-07-20";
+            document.getElementById('buildDate').value = "1998-03-30";
+            document.getElementById('ownerType').value = "solo";
+            document.getElementById('ownerHasChild').checked = true;
+            document.getElementById('spouseHasChild').checked = true;
+            document.getElementById('childEqualY').checked = true;
+
+            setAnswer(1, 0);
+            setAnswer(2, 1);
+            setAnswer(3, -2);
+            setAnswer(4, 0);
+            setAnswer(5, -1);
+            setAnswer(6, 0);
+        }
+
+        toggleDependentUI();
+        calculateAll();
+    }
+
+    function resetAll() {
+        document.getElementById('birthdate').value = "1945-03-26";
+        document.getElementById('buildDate').value = "1992-05-15";
+        document.getElementById('housePrice').value = "200000000";
+        document.getElementById('appreciationRate').value = "";
+        document.getElementById('hasSpouse').value = "Y";
+        document.getElementById('ownerType').value = "solo";
+        document.getElementById('existingLease').value = "N";
+        document.getElementById('ownerHasChild').checked = true;
+        document.getElementById('spouseHasChild').checked = true;
+        document.getElementById('childEqualY').checked = true;
+
+        initSurvey();
+        toggleDependentUI();
+        calculateAll();
+    }
+
+    window.onload = function() {
+        initSurvey();
+        toggleDependentUI();
+        calculateAll();
+    };
+</script>
+</body>
+</html>
