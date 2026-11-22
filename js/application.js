@@ -34,6 +34,8 @@ function isPreferentialNow() {
 }
 
 function updateDocList() {
+  // Step 5 담보방식 추천을 같은 입력값으로 다시 계산한다.
+  if (typeof colRefresh === 'function') colRefresh();
   var spBirth = digits($('spouseBirth').value);
   var spName  = ($('sp_name').value || '').trim();
   var spSsn   = digits($('sp_ssn').value);

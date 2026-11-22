@@ -211,3 +211,6 @@ syncAddr('app');
 syncAddr('sp');
 
 updateDocList();
+
+// Step 5 담보방식 추천 화면 준비
+if (typeof colInit === 'function') colInit();

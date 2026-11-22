@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>주택연금 통합 상담·신청 보조도구 v6.0</title>
+<title>주택연금 통합 상담·신청 보조도구 v6.1</title>
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
 <!-- 상단 고정 바 -->
 <div class="top-bar no-print">
   <div class="top-bar-inner">
-    <h1>주택연금 통합 상담·신청 보조도구 <small>v6.0</small></h1>
+    <h1>주택연금 통합 상담·신청 보조도구 <small>v6.1</small></h1>
     <div class="top-actions">
       <button class="btn-top" onclick="document.getElementById('app-anchor').scrollIntoView({behavior:'smooth'})">📄 신청서로 이동</button>
       <button class="btn-top accent" onclick="copyDocListText()">📋 필요서류 복사</button>
@@ -155,12 +155,40 @@
     </div>
   </div>
 
+  <!-- 5. 담보방식 추천 (v6.1) -->
+  <div class="c-sec" id="colSec">
+    <h2>
+      <span>Step 5. 담보방식 추천</span>
+      <small style="font-weight:400;color:#0b5cad;">※ 위험 점수와 기준값은 확정 전 임시값입니다. 최종 선택은 고객이 합니다.</small>
+    </h2>
+    <div class="banner info" id="colBase"></div>
+    <div class="col-grid">
+      <div><label for="col_owner">주택 소유 구분</label><select id="col_owner"><option value="단독">신청인 단독소유</option><option value="공동">부부 공동소유</option></select></div>
+      <div><label for="col_appChild">신청인에게 자녀가 있습니까?</label><select id="col_appChild"><option value="">-- 선택 --</option><option value="Y">있음</option><option value="N">없음</option></select></div>
+      <div id="col_spChildWrap"><label for="col_spChild">배우자에게 자녀가 있습니까?</label><select id="col_spChild"><option value="">-- 선택 --</option><option value="Y">있음</option><option value="N">없음</option></select></div>
+      <div id="col_relWrap"><label for="col_rel">두 분의 자녀 관계</label><select id="col_rel"><option value="">-- 선택 --</option><option value="1">모두 두 분의 공동자녀</option><option value="2">신청인에게만 공동자녀가 아닌 자녀가 있음</option><option value="3">배우자에게만 공동자녀가 아닌 자녀가 있음</option><option value="4">두 분 모두 공동자녀가 아닌 자녀가 있음</option></select></div>
+      <div><label for="col_leases">보증금 있는 임대차 건수</label><input type="number" id="col_leases" min="0" step="1" value="0"></div>
+      <div><label for="col_trustNA">신탁을 쓸 수 없는 주택입니까?</label><select id="col_trustNA"><option value="N">아니오</option><option value="Y">예 (복합용도주택, 농지법 등 신탁 제한, 등기와 실질 불일치)</option></select></div>
+      <div><label for="col_growth">주택가격상승률 (연 %, 설정세금 참고용)</label><input type="number" id="col_growth" step="0.1" placeholder="예: 2.5"></div>
+    </div>
+    <div id="colSurvey"></div>
+    <div class="col-result" id="colResult"></div>
+    <div class="col-pick">
+      <b>최종 선택</b>
+      <button type="button" class="c-btn pick" data-col-pick="근저당권">저당권방식</button>
+      <button type="button" class="c-btn pick" data-col-pick="신탁(포괄)">신탁방식 (귀속권리자 포괄지정)</button>
+      <button type="button" class="c-btn pick" data-col-pick="신탁(개별)">신탁방식 (귀속권리자 개별지정)</button>
+      <button type="button" class="c-btn sub" id="colReload">앞 단계 값 다시 불러오기</button>
+    </div>
+    <div id="colPickMsg" style="margin-top:8px;"></div>
+  </div>
+
 </div><!-- /.consult-wrap -->
 
 
 <!-- ==================== STAGE 2: 주택연금 신청서 & 필요서류 (A4 인쇄 영역, 폭 210mm) ==================== -->
 <div id="app-anchor" class="app-header-bar no-print">
-  <h2>📄 Step 5. 주택연금 신청서 및 맞춤형 필요서류</h2>
+  <h2>📄 Step 6. 주택연금 신청서 및 맞춤형 필요서류</h2>
   <div class="c-row">
     <span id="lumpGuideBadge" style="font-size:12.5px;background:#fff3cd;border:1px solid #ffecb5;padding:4px 9px;border-radius:6px;color:#664d03;display:none;"></span>
     <button class="c-btn sub" onclick="window.print()">🖨️ A4 인쇄 / PDF 저장</button>
@@ -526,6 +554,7 @@
 <script src="js/price.js"></script>
 <script src="js/pension.js"></script>
 <script src="js/application.js"></script>
+<script src="js/collateral.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
