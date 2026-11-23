@@ -252,7 +252,7 @@ function colRefresh() {
     var m = $('colPickMsg');
     if (!pk) { m.className = ''; m.innerHTML = ''; }
     else if (r.kind === 'mortgage_only' && pk === 'trust') { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 신탁방식을 쓸 수 없는 주택으로 표시되어 있습니다.'; }
-    else if ((r.kind === 'trust' || r.kind === 'mortgage') && pk !== r.kind) { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 추천(' + r.title + ')과 다른 방식입니다. 고객이 차이를 이해했는지 확인하세요.'; }
+    else if ((r.kind === 'trust' || r.kind === 'mortgage') && pk !== r.kind) { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 추천은 "' + r.title + '"인데 다른 방식을 골랐습니다. 고객이 차이를 이해했는지 확인하세요.'; }
     else { m.className = 'banner info'; m.innerHTML = '최종 선택 : ' + pick + ' (신청서의 담보제공방식에 반영했습니다)'; }
   } catch (e) {
     if (window.console) console.error('collateral', e);

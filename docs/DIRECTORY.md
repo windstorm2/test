@@ -7,7 +7,7 @@
 ```
 test/
 ├─ README.md            저장소 안내
-├─ index.html           메인 화면 (통합 상담·신청 보조도구 v6.0의 화면 부분)
+├─ index.html           메인 화면 (통합 상담·신청 보조도구 v6.1의 화면 부분)
 ├─ css/
 │  └─ main.css          화면용 모양과 인쇄용 모양
 ├─ js/                  화면 동작과 계산 로직 (아래 순서대로 불러옴)
@@ -17,9 +17,11 @@ test/
 │  ├─ building.js       Step 2 주소 검색, 건축물·토지·대지권
 │  ├─ price.js          공시가격 조회, Step 3 주택가격 산정
 │  ├─ pension.js        Step 4 예상연금
-│  ├─ application.js    Step 5 신청서, 맞춤형 필요서류
+│  ├─ application.js    Step 6 신청서, 맞춤형 필요서류
+│  ├─ collateral.js     Step 5 담보방식 추천 (v6.1)
 │  └─ main.js           화면 이벤트 연결과 시작 코드
 ├─ docs/                프로젝트 문서
+│  ├─ HANDOFF.md            인수인계 기록 (가장 먼저 읽음)
 │  ├─ PROJECT_OVERVIEW.md   프로젝트 개요
 │  ├─ REQUIREMENTS.md       요건정의 (적용 로직 전체)
 │  ├─ DIRECTORY.md          이 문서
@@ -27,7 +29,9 @@ test/
 ├─ forms/               출력 서식 (아직 비어 있음)
 ├─ worker/              Cloudflare Worker 코드 (아직 비어 있음)
 └─ backup/              백업
-   └─ 202611222155/     2026-11-22 21:55 시점의 기존 파일 전체
+   ├─ 202611222155/     2026-11-22 21:55 시점의 기존 파일 전체
+   ├─ 202611230850/     v6.1 변경 전 코드
+   └─ 202611231021/     2026-11-23 10:21 시점의 v6.1 코드 (문구 수정 전)
 ```
 
 Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에는 안내용 `README.md`를 하나씩 두었습니다.
@@ -101,3 +105,4 @@ Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에
 - `js/main.js` 끝에서 `colInit()`을, `js/application.js`의 `updateDocList()` 첫머리에서 `colRefresh()`를 부릅니다
 - `S.userBase` : 상담자가 가격 기준을 직접 골랐는지 표시. `js/main.js`에서 켜고 `js/building.js`의 `resetUnit()`에서 끕니다
 - `backup/202611230850/` : v6.1 변경 전 코드 10개 파일
+- `backup/202611231021/` : 최종 선택 경고 문구를 고치기 전 코드 (`index.html`, `css/main.css`, `js/` 9개)
