@@ -101,10 +101,10 @@ function formatStandardHouseAddr(a, dong, ho) {
   return stdRoad;
 }
 
-/* 대지권비율 계산 3중 안전망:
-   1) 브이월드 대지권등록부(ldragsList) 또는 건축물대장 전유부(ldaQotaAr/ldaQotaRate) 원문 우선
+/* 대지권비율 수집 (자료가 있는 경우에만 사용, 추정하지 않음):
+   1) 브이월드 대지권등록부 또는 건축물대장 전유부(ldaQotaAr/ldaQotaRate) 원문 우선
    2) 브이월드 공동주택속성(getApartHousingPriceAttr)의 대지권지분 보조
-   3) 만약 두 API에서 모두 대지권지분(분자)이 안 내려온 단지라도, 표제부 전체대지면적(platArea) × (세대 연면적 / 단지 총연면적)으로 추정 대지권비율을 산출하여 절대 빈칸이 되지 않도록 보장! */
+   3) 두 자료에 모두 없으면 비워 둔다. 면적 비례 추정은 하지 않는다(2026-11-23 사용자 결정). */
 function computeBestLandRight() {
   var b = S.bld, d = S.det, l = S.land;
   var totalLandAr = (b && b.platArea && Number(b.platArea) > 0) ? Number(b.platArea) : ((l && l.landArea && Number(l.landArea) > 0) ? Number(l.landArea) : null);
@@ -136,22 +136,6 @@ function computeBestLandRight() {
       source: src,
       estimated: false
     };
-  }
-
-  // 3순위 폴백: 대지권 API 응답이 비어있는 경우 단지 연면적(또는 세대수) 대비 세대 면적 비율로 대지권 지분 추정
-  var unitAr = (d && (d.totalUnitArea || d.area)) || Number($('area').value) || 0;
-  var bldTotAr = (b && b.totArea && Number(b.totArea) > 0) ? Number(b.totArea) : 0;
-  if (totalLandAr && unitAr > 0 && bldTotAr > unitAr) {
-    var estRight = Math.round((totalLandAr * (unitAr / bldTotAr)) * 100) / 100;
-    if (estRight > 0) {
-      return {
-        totalLandAr: totalLandAr,
-        rightAr: estRight,
-        ratioText: totalLandAr + '분의 ' + estRight,
-        source: '면적비례추정',
-        estimated: true
-      };
-    }
   }
 
   return { totalLandAr: totalLandAr, rightAr: rightAr, ratioText: rawRate || '', source: src, estimated: false };
@@ -255,7 +239,7 @@ function buildCompactSummary(dong, ho, fl) {
   if (isCollective) {
     if (lr.totalLandAr) items.push('전체대지 ' + won(lr.totalLandAr) + '㎡' + (jimok ? '(' + jimok + ')' : ''));
     if (lr.ratioText) {
-      items.push('대지권비율 <b>' + lr.ratioText + '</b>' + (lr.estimated ? '(추정)' : ''));
+      items.push('대지권비율 <b>' + lr.ratioText + '</b>');
     }
   } else {
     if (jimok || lr.totalLandAr) {

@@ -100,14 +100,20 @@ function colEval(inp) {
   }
 
   // 5) 이용 제한과 판정
+  // 보증금 있는 임대차는 저당권방식에서 "순수 월세로 변경"하는 조건으로 가입할 수 있다(사용자 확인 2026-11-23).
+  // 따라서 가입을 막지는 않고, 신탁방식을 쓰기 어려운 경우에 한해 저당권방식을 추천한다.
   var leases = Number(inp.leases) || 0;
+  var leaseTxt = '보증금 있는 임대차 ' + leases + '건을 순수 월세 계약으로 바꾸는 조건으로 가입할 수 있습니다.';
+  var trustHard = !!inp.trustNA || (leases >= 5 && inp.houseType !== '단독주택');
   if (inp.trustNA) {
     r.kind = 'mortgage_only'; r.title = '저당권방식만 가능';
     r.one = '신탁방식을 쓸 수 없는 주택입니다(복합용도주택, 농지법 등으로 신탁이 제한되는 주택, 등기와 실질이 다른 주택).';
+    if (leases >= 1) r.one += ' ' + leaseTxt;
     if (r.succ >= 2 || r.attr >= 2) r.checks.push('가족 구성상 저당권방식의 위험(위 점수)을 고객에게 따로 설명해야 합니다.');
   } else if (leases >= 5 && inp.houseType !== '단독주택') {
-    r.kind = 'hold'; r.title = '추천 보류';
-    r.one = '보증금 있는 임대차가 5건 이상이라 신탁방식을 이용할 수 없습니다(단독주택 제외). 저당권방식 가입 가능 여부를 먼저 확인하세요.';
+    r.kind = 'mortgage_only'; r.title = '저당권방식 (조건부)';
+    r.one = '보증금 있는 임대차가 5건 이상이라 신탁방식을 이용할 수 없습니다(단독주택 제외). 저당권방식은 ' + leaseTxt;
+    if (r.succ >= 2 || r.attr >= 2) r.checks.push('가족 구성상 저당권방식의 위험(위 점수)을 고객에게 따로 설명해야 합니다.');
   } else if (base === 'fixed') {
     r.kind = 'trust'; r.title = '신탁방식 추천';
     r.one = appNC ? '배우자가 자녀 동의 없이 연금을 이어받고, 남는 재산은 신청인 자녀에게 가도록 귀속권리자를 지정합니다.' : '배우자가 자녀 동의 없이 연금을 이어받고, 남는 재산의 귀속권리자를 미리 지정합니다.';
@@ -128,7 +134,13 @@ function colEval(inp) {
     r.reasons.push('위험 측면에서는 중립이므로 고객 선호 지수(' + r.pref + ')로 판단했습니다. +20 초과는 신탁, -20 미만은 저당권입니다.');
   }
 
-  if (leases >= 1 && r.kind !== 'hold') r.checks.push('보증금 있는 임대차가 ' + leases + '건 있습니다. 저당권방식은 이용이 제한될 수 있으니 확인이 필요합니다.');
+  if (leases >= 1 && !trustHard && r.kind === 'mortgage') {
+    // 신탁방식을 쓸 수 있는데 임대차가 있으면 저당권방식은 추천하지 않는다.
+    r.kind = 'trust'; r.title = '신탁방식 추천 (임대차 반영)';
+    r.one = '보증금 있는 임대차가 있어 신탁방식을 추천합니다. 저당권방식은 임대차를 순수 월세로 바꿔야 가입할 수 있습니다.';
+    r.reasons.push('고객 선호는 저당권방식 쪽(지수 ' + r.pref + ')이지만, 신탁방식을 쓸 수 있고 보증금 있는 임대차 ' + leases + '건이 있어 저당권방식은 추천하지 않습니다. 저당권방식은 신탁방식을 쓰기 어려운 경우에만 추천합니다.');
+  }
+  if (leases >= 1 && !trustHard) r.checks.push('보증금 있는 임대차가 ' + leases + '건 있습니다. 저당권방식을 선택하면 ' + leaseTxt);
   if (r.redev && r.redev.level >= 1) {
     var t = '건물 경과 ' + r.redev.elapsed + '년 + 기대여명 ' + r.redev.life + '년 = ' + r.redev.sum + '년으로, 거주 중 재건축·재개발 가능성' + (r.redev.level === 2 ? '이 높습니다.' : '이 있습니다.');
     if (r.redev.raised) t += ' 6번 문항의 중요도 "보통"을 "중요"로 올려 계산했습니다.';
@@ -251,7 +263,7 @@ function colRefresh() {
     });
     var m = $('colPickMsg');
     if (!pk) { m.className = ''; m.innerHTML = ''; }
-    else if (r.kind === 'mortgage_only' && pk === 'trust') { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 신탁방식을 쓸 수 없는 주택으로 표시되어 있습니다.'; }
+    else if (r.kind === 'mortgage_only' && pk === 'trust') { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 신탁방식을 이용할 수 없는 조건입니다(신탁 불가 주택 또는 보증금 있는 임대차 5건 이상).'; }
     else if ((r.kind === 'trust' || r.kind === 'mortgage') && pk !== r.kind) { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 추천은 "' + r.title + '"인데 다른 방식을 골랐습니다. 고객이 차이를 이해했는지 확인하세요.'; }
     else { m.className = 'banner info'; m.innerHTML = '최종 선택 : ' + pick + ' (신청서의 담보제공방식에 반영했습니다)'; }
   } catch (e) {
