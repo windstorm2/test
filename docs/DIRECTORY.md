@@ -27,13 +27,14 @@ test/
 │  ├─ DIRECTORY.md          이 문서
 │  └─ CHANGELOG.md          변경 이력
 ├─ forms/               출력 서식 (아직 비어 있음)
-├─ worker/              Cloudflare Worker 코드 (worker.js v6.3)
+├─ worker/              Cloudflare Worker 코드 (worker.js v6.4)
 └─ backup/              백업
    ├─ 202611222155/     2026-11-22 21:55 시점의 기존 파일 전체
    ├─ 202611230850/     v6.1 변경 전 코드
    ├─ 202611231021/     2026-11-23 10:21 시점의 v6.1 코드 (문구 수정 전)
    ├─ 202611231740/     2026-11-23 17:40 시점의 코드 (임대차 규칙, 대지권 추정 제거 전)
-   └─ 202611241658/     Worker v6.2 원본 사본 (v6.3 수정 전)
+   ├─ 202611241658/     Worker v6.2 원본 사본 (v6.3 수정 전)
+   └─ 202611241722/     Worker v6.3 사본, js/building.js (v6.4 수정 전)
 ```
 
 Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에는 안내용 `README.md`를 하나씩 두었습니다.
@@ -45,7 +46,7 @@ Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에
 | `js/common.js` | 설정값, 전역 상태 객체 S, 공통 도우미 함수 | 설정값 선언 8개(`API_BASE`, `AREA_TOL`, `S`, `$`, `won`, `digits`, `qs`, `fmtDay`), `showToast`, `banner`, `addBanner`, `fill`, `setPill` |
 | `js/api.js` | 0. API 통신 및 토큰 체크 | `token`, `api`, `checkToken` |
 | `js/customer.js` | 1. 고객 기본 정보 | `ymd6To8`, `targetLumpAmt`, `recalcInchulBalance`, `validYmd6` |
-| `js/building.js` | 2. 주소 검색, 건축물·토지·대지권 요약 | `searchAddrUI`, `resetUnit`, `mapPurpsToHouseType`, `formatStandardHouseAddr`, `computeBestLandRight`, `syncBuildingToApplication`, `normDongKey`, `getBuildingMaxFloor`, `shortStrct`, `buildCompactSummary`, `renderBldBanner`, `startLandFetch`, `pickAddr`, `guessFloor`, `loadUnit` |
+| `js/building.js` | 2. 주소 검색, 건축물·토지·대지권 요약 | `searchAddrUI`, `resetUnit`, `mapPurpsToHouseType`, `formatStandardHouseAddr`, `computeBestLandRight`, `landRightWhy`, `syncBuildingToApplication`, `normDongKey`, `getBuildingMaxFloor`, `shortStrct`, `buildCompactSummary`, `renderBldBanner`, `startLandFetch`, `pickAddr`, `guessFloor`, `loadUnit` |
 | `js/price.js` | 공시가격 조회, 3. 주택가격 산정 기준 | `calcTargetRatio`, `buildPageOrder`, `startPriceFetch`, `bldPriceSummary`, `isApt`, `sisePrice`, `ratio`, `hsprcConv`, `siseNear`, `bestSise`, `buildPriceOptions`, `applyPrice`, `priceNotes`, `baseLabel` |
 | `js/pension.js` | 4. 예상연금 조회 | `renderPension`, `applyPensionToApplication`, `updateLumpGuideBadge` |
 | `js/application.js` | 5. 신청서 주소 동기화, 맞춤형 필요서류 생성 | `syncAddr`, `isPreferentialNow`, `updateDocList`, `copyDocListText`, `autoFitPage`, `resetAll` |
@@ -80,7 +81,7 @@ Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에
 | 폴더 | 들어갈 내용 |
 |---|---|
 | `forms/` | 개인정보 동의서, 확약서, 약정서, 등기서류, 설명서. 공통 데이터를 읽어 자동으로 채움 |
-| `worker/worker.js` | Worker 코드(v6.3). Cloudflare 배포는 별도로 해야 함 |
+| `worker/worker.js` | Worker 코드(v6.4). Cloudflare 배포는 별도로 해야 함 |
 
 ## 백업 규칙
 

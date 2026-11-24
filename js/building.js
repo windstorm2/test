@@ -289,6 +289,18 @@ function renderBldBanner(dong, ho, fl) {
   }
 }
 
+/* 대지권 비율이 없을 때 그 사유(Worker v6.4 이상이 돌려주는 진단 정보)를 짧은 문구로 만든다 */
+function landRightWhy(l, dong, ho) {
+  if (!ho) return '';
+  var g = l && l.ldareg;
+  if (!g) return '';
+  var unit = (dong ? dong + ' ' : '') + ho;
+  if (g.stop === 'error') return '대지권등록 조회 실패(브이월드 응답 없음)';
+  if (g.stop === 'empty') return '이 필지에 대지권등록 자료 없음';
+  if (g.stop === 'budget') return '대지권등록 ' + g.rows + '/' + (g.total || '?') + '건만 읽고 중단(호출 한도), ' + unit + ' 못 찾음';
+  return '대지권등록 ' + g.rows + '건 중 ' + unit + ' 일치 없음' + (g.dongs && g.dongs.length ? ' (자료의 동 예: ' + g.dongs.slice(0, 4).join(', ') + ')' : '');
+}
+
 /* 브이월드 토지·대지권등록부·공시지가 비동기 조회 */
 function startLandFetch(a, dong, ho, platArea) {
   S.land = null;
@@ -303,9 +315,10 @@ function startLandFetch(a, dong, ho, platArea) {
         setPill('stLand', 'ok', '✓ 대지권: ' + lr.ratioText);
       } else if (l.landArea || l.landPricePerM2) {
         var tag = (l.jimok ? l.jimok + ' ' : '') + (l.landArea ? won(l.landArea) + '㎡' : '확인됨');
-        setPill('stLand', 'ok', '✓ 토지: ' + tag);
+        var why = landRightWhy(l, dong, ho);
+        setPill('stLand', 'ok', '✓ 토지: ' + tag + (why ? ' · 대지권 비율 없음: ' + why : ''));
       } else {
-        setPill('stLand', 'none', '대지권 미조회');
+        setPill('stLand', 'none', '대지권 미조회' + (landRightWhy(l, dong, ho) ? ': ' + landRightWhy(l, dong, ho) : ''));
       }
 
       if (l && l.aptPubPrice && (!S.price || !S.price.hsprc)) {

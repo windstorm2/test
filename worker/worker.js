@@ -1,5 +1,5 @@
 /**
- * 주택연금 상담 보조도구 v6.3 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.4 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
@@ -65,7 +65,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.3',
+          version: 'v6.4',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -74,7 +74,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.3' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.4' }, req);
       if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
         return json({ error: 'unauthorized' }, req, 401);
       }
@@ -171,9 +171,10 @@ function makePnu(sp) {
    -  5점: 레코드에 동 정보가 아예 없거나 단일동 단지이면서 호 번호가 일치
    -  0점: 동 번호가 서로 다름 (예: 101동 306호 vs 103동 306호 → 절대 매칭 금지!) */
 function matchUnitRank(rDongRaw, rHoRaw, wantDongRaw, wantHoRaw) {
+  const z = x => String(x || '').replace(/^0+(?=\d)/, ''); // 앞자리 0 무시 ("0101" = "101")
   const rh = normHo(rHoRaw), wh = normHo(wantHoRaw);
   if (!wh || !rh) return 0;
-  const rhd = dg(rh), whd = dg(wh);
+  const rhd = z(dg(rh)), whd = z(dg(wh));
   const hoMatch = (rh === wh) || (rhd && whd && rhd === whd);
   if (!hoMatch) return 0;
 
@@ -181,9 +182,9 @@ function matchUnitRank(rDongRaw, rHoRaw, wantDongRaw, wantHoRaw) {
   if (!wd) return 8;
   if (!rd) return 5; // 레코드에 동 필드가 비어있는 경우 후보로만 유지
   if (rd === wd) return 10;
-  const wdd = dg(wd), rdd = dg(rd);
+  const wdd = z(dg(wd)), rdd = z(dg(rd));
   if (wdd && rdd) {
-    if (wdd === rdd || nums(rd).includes(wdd)) return 10;
+    if (wdd === rdd || nums(rd).map(z).includes(wdd)) return 10;
     return 0; // 동 숫자가 다르면(101동 vs 103동) 무조건 0점 탈락!
   }
   return 0;
@@ -324,22 +325,66 @@ async function fetchLdragsRight(pnu, dong, ho, ctx) {
     return parsed.find(x => x.rawRate || x.quotaAr) || parsed[0];
   };
 
-  // 1차: PNU로 1~5페이지(500건씩 최대 2,500건) 스캔하되 동·호 정확 일치(rank=10) 발견 시 즉시 반환
-  let fallbackCandidate = null;
-  for (let page = 1; page <= 5; page++) {
-    if (ctx.n >= 38) break;
-    const res = await vworldCall('ldaregList', { pnu, numOfRows: '500', pageNo: String(page) }, ctx);
-    const arr = extractVworldRows(res);
-    if (!arr.length) break;
-
-    const hit = pickBestHit(arr);
-    if (hit && (hit.rawRate || hit.quotaAr)) {
-      // 동까지 정확히 일치한 경우 즉시 종료
-      const hasExactDong = arr.some(r => matchUnitRank(getDong(r), getHo(r), dong, ho) === 10);
-      if (hasExactDong) return { ...hit, source: '대지권등록부' };
-      if (!fallbackCandidate) fallbackCandidate = { ...hit, source: '대지권등록부' };
+  // 진단 정보(화면에 실패 사유를 보이기 위함): 읽은 쪽·행 수, 전체 건수, 동 이름 예시, 중단 사유
+  const meta = ctx.ld = { pages: 0, rows: 0, total: null, matched: false, stop: '', dongs: [] };
+  const findTotal = res => {
+    if (!res || typeof res !== 'object') return null;
+    for (const k of Object.keys(res)) {
+      const v = res[k];
+      if (v && typeof v === 'object' && v.totalCount != null && Number(v.totalCount) >= 0) return Number(v.totalCount);
     }
-    if (arr.length < 500) break;
+    return null;
+  };
+  const addRows = arr => {
+    meta.rows += arr.length;
+    for (const r of arr) {
+      if (meta.dongs.length >= 6) break;
+      const d = String(getDong(r) || '').trim();
+      if (d && d !== '0000' && !meta.dongs.includes(d)) meta.dongs.push(d);
+    }
+  };
+  let fallbackCandidate = null;
+  // 한 쪽을 훑어 동·호가 정확히 일치(rank=10)하면 결과를 돌려주고, 아니면 후보만 기억
+  const scan = arr => {
+    const hit = pickBestHit(arr);
+    if (!hit || !(hit.rawRate || hit.quotaAr)) return null;
+    if (arr.some(r => matchUnitRank(getDong(r), getHo(r), dong, ho) === 10)) { meta.matched = true; return { ...hit, source: '대지권등록부' }; }
+    if (!fallbackCandidate) fallbackCandidate = { ...hit, source: '대지권등록부' };
+    return null;
+  };
+
+  const PAGE = 500;
+  const call = pg => vworldCall('ldaregList', { pnu, numOfRows: String(PAGE), pageNo: String(pg) }, ctx);
+
+  // 1쪽
+  const res1 = await call(1);
+  meta.pages = 1;
+  if (res1 === null) { meta.stop = 'error'; return null; }
+  const arr1 = extractVworldRows(res1);
+  meta.total = findTotal(res1);
+  if (!arr1.length) { meta.stop = 'empty'; return null; }
+  addRows(arr1);
+  const exact1 = scan(arr1);
+  if (exact1) return exact1;
+
+  // 나머지 쪽: 브이월드가 요청한 건수보다 적게 돌려줘도(1쪽 크기 기준) 전체 건수(totalCount)까지 끝까지 읽는다.
+  // 요청당 외부 호출 한도(50회)를 지키기 위해 호출 38회에서 멈추고, 6쪽씩 병렬로 읽는다.
+  const size = arr1.length;
+  const totalPages = meta.total && size ? Math.ceil(meta.total / size) : (size >= PAGE ? 2 : 1);
+  for (let pg = 2; pg <= totalPages;) {
+    const room = 38 - ctx.n;
+    if (room <= 0) { meta.stop = 'budget'; break; }
+    const batch = [];
+    for (let k = 0; k < Math.min(6, room) && pg <= totalPages; k++, pg++) batch.push(pg);
+    const rs = await Promise.all(batch.map(call));
+    meta.pages += batch.length;
+    for (const r of rs) {
+      const a = extractVworldRows(r);
+      if (!a.length) continue;
+      addRows(a);
+      const ex = scan(a);
+      if (ex) return ex;
+    }
   }
 
   return fallbackCandidate;
@@ -449,6 +494,7 @@ async function landInfo(sp, ctx) {
     ratioDen: normRight.ratioDen,
     rightKind: ldragsHit?.rightKind || (ho ? '소유권대지권' : null),
     rightSource,
+    ldareg: ctx.ld || null,
     aptPubPrice,
     aptPubYear,
   };
