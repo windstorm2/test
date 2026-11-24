@@ -295,7 +295,10 @@ function landRightWhy(l, dong, ho) {
   var g = l && l.ldareg;
   if (!g) return '';
   var unit = (dong ? dong + ' ' : '') + ho;
-  if (g.stop === 'error') return '대지권등록 조회 실패(브이월드 응답 없음)';
+  if (g.stop === 'error') {
+    var tr = (g.tries || []).map(function(t) { return t.f + '/' + t.n + '건: HTTP ' + t.s + ' ' + t.h; }).join(' | ');
+    return '대지권등록 조회 실패' + (tr ? ' [' + tr + ']' : '(브이월드 응답 없음)');
+  }
   if (g.stop === 'empty') return '이 필지에 대지권등록 자료 없음';
   if (g.stop === 'budget') return '대지권등록 ' + g.rows + '/' + (g.total || '?') + '건만 읽고 중단(호출 한도), ' + unit + ' 못 찾음';
   return '대지권등록 ' + g.rows + '건 중 ' + unit + ' 일치 없음' + (g.dongs && g.dongs.length ? ' (자료의 동 예: ' + g.dongs.slice(0, 4).join(', ') + ')' : '');

@@ -27,14 +27,15 @@ test/
 │  ├─ DIRECTORY.md          이 문서
 │  └─ CHANGELOG.md          변경 이력
 ├─ forms/               출력 서식 (아직 비어 있음)
-├─ worker/              Cloudflare Worker 코드 (worker.js v6.4)
+├─ worker/              Cloudflare Worker 코드 (worker.js v6.5)
 └─ backup/              백업
    ├─ 202611222155/     2026-11-22 21:55 시점의 기존 파일 전체
    ├─ 202611230850/     v6.1 변경 전 코드
    ├─ 202611231021/     2026-11-23 10:21 시점의 v6.1 코드 (문구 수정 전)
    ├─ 202611231740/     2026-11-23 17:40 시점의 코드 (임대차 규칙, 대지권 추정 제거 전)
    ├─ 202611241658/     Worker v6.2 원본 사본 (v6.3 수정 전)
-   └─ 202611241722/     Worker v6.3 사본, js/building.js (v6.4 수정 전)
+   ├─ 202611241722/     Worker v6.3 사본, js/building.js (v6.4 수정 전)
+   └─ 202611241734/     Worker v6.4 사본, js/building.js (v6.5 수정 전)
 ```
 
 Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에는 안내용 `README.md`를 하나씩 두었습니다.
@@ -81,7 +82,7 @@ Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에
 | 폴더 | 들어갈 내용 |
 |---|---|
 | `forms/` | 개인정보 동의서, 확약서, 약정서, 등기서류, 설명서. 공통 데이터를 읽어 자동으로 채움 |
-| `worker/worker.js` | Worker 코드(v6.4). Cloudflare 배포는 별도로 해야 함 |
+| `worker/worker.js` | Worker 코드(v6.5). Cloudflare 배포는 별도로 해야 함 |
 
 ## 백업 규칙
 

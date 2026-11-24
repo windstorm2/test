@@ -1,5 +1,5 @@
 /**
- * 주택연금 상담 보조도구 v6.4 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.5 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
@@ -65,7 +65,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.4',
+          version: 'v6.5',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -74,7 +74,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.4' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.5' }, req);
       if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
         return json({ error: 'unauthorized' }, req, 401);
       }
@@ -284,6 +284,61 @@ function extractVworldRows(res) {
   return [];
 }
 
+/* 대지권등록목록 전용 호출: 실패해도 HTTP 상태와 본문 앞부분을 돌려줘 사유를 알 수 있게 한다 */
+async function vworldRaw(endpoint, params, ctx, fmt) {
+  if (!ctx.env.VWORLD_KEY) return { status: 0, text: 'VWORLD_KEY 미등록' };
+  ctx.n = (ctx.n || 0) + 1;
+  const key = ctx.env.VWORLD_KEY;
+  const p = new URLSearchParams({ key, format: fmt || 'json', numOfRows: '100', pageNo: '1', ...params });
+  try {
+    const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, {
+      headers: { Accept: fmt === 'xml' ? '*/*' : 'application/json', 'User-Agent': 'Mozilla/5.0 homepension-branch-tool' },
+    });
+    const text = await res.text();
+    return { status: res.status, text: String(text).split(key).join('***') };
+  } catch (e) {
+    return { status: -1, text: String(e && e.message || e).split(key).join('***') };
+  }
+}
+
+function ldFindTotal(res) {
+  if (!res || typeof res !== 'object') return null;
+  for (const k of Object.keys(res)) {
+    const v = res[k];
+    if (v && typeof v === 'object' && v.totalCount != null && Number(v.totalCount) >= 0) return Number(v.totalCount);
+  }
+  return null;
+}
+
+function ldParseXml(t) {
+  const rows = [];
+  const re = /<LdaregVOList>([\s\S]*?)<\/LdaregVOList>/g;
+  let m;
+  while ((m = re.exec(t))) {
+    const o = {};
+    const tre = /<([A-Za-z0-9_]+)>([^<]*)<\/\1>/g;
+    let x;
+    while ((x = tre.exec(m[1]))) o[x[1]] = x[2].trim();
+    rows.push(o);
+  }
+  const tc = t.match(/<totalCount>\s*(\d+)\s*<\/totalCount>/);
+  return { rows, total: tc ? Number(tc[1]) : null };
+}
+
+/* 응답 본문 해석: JSON 또는 XML. 정상 응답이면 {ok:true, rows, total}, 아니면 {ok:false} */
+function ldParse(text) {
+  const t = String(text || '').replace(/^\uFEFF/, '').trim();
+  let out = null;
+  if (t[0] === '{' || t[0] === '[') {
+    try { const j = JSON.parse(t); out = { rows: extractVworldRows(j), total: ldFindTotal(j) }; } catch { out = null; }
+  } else if (/<LdaregVOList>|<totalCount>/.test(t)) {
+    out = ldParseXml(t);
+  }
+  // 정상 응답에는 totalCount(0 포함)나 행이 있다. 둘 다 없으면 오류 응답으로 본다.
+  if (out && (out.total !== null || out.rows.length)) return { ok: true, rows: out.rows, total: out.total };
+  return { ok: false };
+}
+
 /* 브이월드 대지권등록목록(ldaregList) 조회. 응답: buldDongNm, buldHoNm, ldaQotaRate("분자/분모", 예 81.03/15622.1) */
 async function fetchLdragsRight(pnu, dong, ho, ctx) {
   if (!ho) return null;
@@ -325,16 +380,8 @@ async function fetchLdragsRight(pnu, dong, ho, ctx) {
     return parsed.find(x => x.rawRate || x.quotaAr) || parsed[0];
   };
 
-  // 진단 정보(화면에 실패 사유를 보이기 위함): 읽은 쪽·행 수, 전체 건수, 동 이름 예시, 중단 사유
-  const meta = ctx.ld = { pages: 0, rows: 0, total: null, matched: false, stop: '', dongs: [] };
-  const findTotal = res => {
-    if (!res || typeof res !== 'object') return null;
-    for (const k of Object.keys(res)) {
-      const v = res[k];
-      if (v && typeof v === 'object' && v.totalCount != null && Number(v.totalCount) >= 0) return Number(v.totalCount);
-    }
-    return null;
-  };
+  // 진단 정보(화면에 실패 사유를 보이기 위함): 읽은 쪽·행 수, 전체 건수, 동 이름 예시, 중단 사유, 시도 기록
+  const meta = ctx.ld = { pages: 0, rows: 0, total: null, matched: false, stop: '', dongs: [], tries: [], fmt: '', size: 0 };
   const addRows = arr => {
     meta.rows += arr.length;
     for (const r of arr) {
@@ -353,36 +400,42 @@ async function fetchLdragsRight(pnu, dong, ho, ctx) {
     return null;
   };
 
-  const PAGE = 500;
-  const call = pg => vworldCall('ldaregList', { pnu, numOfRows: String(PAGE), pageNo: String(pg) }, ctx);
+  const fetchPage = async (pg, fmt, size) => {
+    const r = await vworldRaw('ldaregList', { pnu, numOfRows: String(size), pageNo: String(pg) }, ctx, fmt);
+    return { r, parsed: ldParse(r.text) };
+  };
 
-  // 1쪽
-  const res1 = await call(1);
+  // 1쪽: 조건을 바꿔 가며 성공하는 방식을 찾는다(JSON 500건 → JSON 100건 → XML 100건). 성공한 방식을 이후 쪽에도 쓴다.
+  let fmt = '', size = 0, first = null;
+  for (const [f, n] of [['json', 500], ['json', 100], ['xml', 100]]) {
+    const { r, parsed } = await fetchPage(1, f, n);
+    meta.tries.push({ f, n, s: r.status, h: parsed.ok ? 'OK' : String(r.text).replace(/\s+/g, ' ').slice(0, 90) });
+    if (parsed.ok) { fmt = f; size = n; first = parsed; break; }
+    if (ctx.n >= 38) break;
+  }
   meta.pages = 1;
-  if (res1 === null) { meta.stop = 'error'; return null; }
-  const arr1 = extractVworldRows(res1);
-  meta.total = findTotal(res1);
-  if (!arr1.length) { meta.stop = 'empty'; return null; }
-  addRows(arr1);
-  const exact1 = scan(arr1);
+  if (!first) { meta.stop = 'error'; return null; }
+  meta.fmt = fmt; meta.size = size; meta.total = first.total;
+  if (!first.rows.length) { meta.stop = 'empty'; return null; }
+  addRows(first.rows);
+  const exact1 = scan(first.rows);
   if (exact1) return exact1;
 
   // 나머지 쪽: 브이월드가 요청한 건수보다 적게 돌려줘도(1쪽 크기 기준) 전체 건수(totalCount)까지 끝까지 읽는다.
   // 요청당 외부 호출 한도(50회)를 지키기 위해 호출 38회에서 멈추고, 6쪽씩 병렬로 읽는다.
-  const size = arr1.length;
-  const totalPages = meta.total && size ? Math.ceil(meta.total / size) : (size >= PAGE ? 2 : 1);
+  const got = first.rows.length;
+  const totalPages = meta.total && got ? Math.ceil(meta.total / got) : (got >= size ? 2 : 1);
   for (let pg = 2; pg <= totalPages;) {
     const room = 38 - ctx.n;
     if (room <= 0) { meta.stop = 'budget'; break; }
     const batch = [];
     for (let k = 0; k < Math.min(6, room) && pg <= totalPages; k++, pg++) batch.push(pg);
-    const rs = await Promise.all(batch.map(call));
+    const rs = await Promise.all(batch.map(p2 => fetchPage(p2, fmt, size)));
     meta.pages += batch.length;
-    for (const r of rs) {
-      const a = extractVworldRows(r);
-      if (!a.length) continue;
-      addRows(a);
-      const ex = scan(a);
+    for (const { parsed } of rs) {
+      if (!parsed.ok || !parsed.rows.length) continue;
+      addRows(parsed.rows);
+      const ex = scan(parsed.rows);
       if (ex) return ex;
     }
   }
