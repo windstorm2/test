@@ -61,7 +61,7 @@
 | 저장소 | 역할 | 주소 |
 |---|---|---|
 | `windstorm2/test` | 개발용. 모든 수정은 여기서만 함 | https://windstorm2.github.io/test/ |
-| `windstorm2/home_pension` | 운영용. 검증된 결과만 반영 | https://windstorm2.github.io/home_pension/ |
+| `windstorm2/home_pension` | 운영용. 검증된 결과만 반영. 첫 페이지 `index.html`은 서류 가이드(이전 `index_old.html`), 통합 상담·신청 보조도구 v6.0은 `index_new.html` (2026-11-25 이름 교체) | https://windstorm2.github.io/home_pension/ |
 
 - 소스는 계정 안의 어느 저장소에서 가져와도 됩니다.
 - 서식(동의서, 확약서, 약정서, 등기서류)은 이 저장소의 `forms/` 폴더에서 개발해 통합합니다.

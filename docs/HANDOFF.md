@@ -9,7 +9,7 @@
 - `windstorm2/test` 저장소 main은 **v6.1**입니다. v6.0 분할본에 시세 자동 선택 규칙(커밋 `ab060c6`)과 Step 5 담보방식 추천(커밋 `8d617a7`, `js/collateral.js`)을 더했습니다. 변경 전 코드는 `backup/202611230850/`에 있습니다.
 - v6.1은 JS 문법 검사, Node 계산 시험(시세 선택 7개, 추천 판정 43개 모두 통과), 가상 화면(jsdom) 시험(Step 5 추천 6개 사례와 최종 선택의 신청서 반영)을 거쳤습니다. **실제 브라우저 시험은 하지 않았습니다.** 화면이 깨지면 `backup/202611230850/` 또는 `backup/202611231021/`의 파일로 되돌릴 수 있습니다.
 - 2026-11-23 10:40에 최종 선택 경고 문구의 괄호 겹침을 고쳤습니다(`js/collateral.js`). 변경 전 코드는 `backup/202611231021/`입니다.
-- 운영용 `windstorm2/home_pension`은 한 파일짜리 v6.0 그대로이며 건드리지 않았습니다.
+- 운영용 `windstorm2/home_pension`: 2026-11-25 사용자 요청으로 파일 이름만 바꿨습니다(커밋 `9e2fe8c`). 접속 첫 페이지 `index.html`은 이제 이전의 `index_old.html`("주택연금 서류 가이드")이고, 한 파일짜리 통합 상담·신청 보조도구 v6.0은 `index_new.html`(주소 `https://windstorm2.github.io/home_pension/index_new.html`)입니다. 내용은 고치지 않았습니다.
 - 저장소 문서(요건정의 v0.6, 개요, README, 폴더 구조, 변경 이력, 이 문서)는 모두 v6.1 기준입니다.
 - 확인하지 못한 것: 접속 토큰이 필요한 조회(주소 검색, 건축물·시세·공시가격 조회, 연금 산출), 인쇄 모양, 실제 상담 흐름 전체.
 
@@ -27,7 +27,7 @@
 |---|---|---|
 | 개발용 저장소 | `windstorm2/test` (main, 공개) | 모든 수정은 여기에만 합니다 |
 | 개발용 화면 | https://windstorm2.github.io/test/ | main에 올리면 자동 반영 |
-| 운영용 저장소 | `windstorm2/home_pension` (공개) | 사용자가 배포를 정하기 전에는 고치지 않습니다 |
+| 운영용 저장소 | `windstorm2/home_pension` (공개) | 사용자가 배포를 정하기 전에는 고치지 않습니다(예외: 2026-11-25 파일 이름 교체, 위 1번) |
 | 운영용 화면 | https://windstorm2.github.io/home_pension/ | |
 | API | https://homepension.windstorm2.workers.dev | Cloudflare Worker v6.2. 배포는 사용자가 직접 합니다 |
 
