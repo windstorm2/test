@@ -1,6 +1,6 @@
 # 요건정의 (적용 로직 전체)
 
-버전: v0.6 초안 / 최종 수정: 2026-11-23 18:00
+버전: v0.6 초안 / 최종 수정: 2026-11-24 17:10
 
 이 문서는 아직 확정본이 아닙니다. 프로젝트 환경을 구성한 뒤 항목별로 검토해 확정합니다.
 
@@ -76,7 +76,7 @@
 | 주택가격상승률(연 %) | col_growth |
 | 선호 문항 6개(-2~+2)와 중요도(0~2) | col_q0~col_q5, col_w0~col_w5 |
 
-## 3. 외부 데이터 (Cloudflare Worker v6.2) `[코드]`
+## 3. 외부 데이터 (Cloudflare Worker, 저장소 v6.3 / 배포 확인된 것은 v6.2) `[코드]`
 
 | 경로 | 기능 | 출처 |
 |---|---|---|
@@ -94,7 +94,23 @@ Worker Secret: `DATA_GO_KR_KEY`, `JUSO_CONFM_KEY`, `VWORLD_KEY`, `BRANCH_TOKEN`(
 
 - `[합의]` 대지권 비율은 자료가 있을 때만 수집하고, 없으면 비워 둡니다. 면적 비례 추정은 하지 않습니다(2026-11-23). v6.1 이후 코드에서 추정을 뺐습니다(`js/building.js`의 `computeBestLandRight`). 추정으로 채우던 값은 화면에 "(추정)"으로 표시되었습니다.
 - 수집 순서: 브이월드 대지권등록 → 건축물대장 전유부(`ldaQotaAr`, `ldaQotaRate`) → 브이월드 공동주택속성(`getApartHousingPriceAttr`). 모두 없으면 빈 칸입니다.
-- `[코드]` Worker(`fetchLdragsRight`)는 브이월드 서비스 `ldragsList`를 부릅니다. 브이월드 국가중점데이터 카탈로그(2026-06-16 수집본)에는 대지권등록목록조회가 `/ned/data/ldaregList`(요청 변수 `pnu`, `key`)로 올라 있고 `ldragsList`는 없습니다. 서비스 이름이 다르면 호출이 실패해 항상 빈 값이 되므로, 대지권 비율이 건축물대장이나 공동주택속성에서만 채워지고 있을 수 있습니다. 실제 호출로는 확인하지 못했습니다(미확인). 확인 방법과 수정 계획은 `docs/HANDOFF.md` 9번.
+- `[코드]` 브이월드 대지권등록목록조회는 `/ned/data/ldaregList`(요청 변수 `pnu`, `key`)이며, 사용자가 실제 키로 호출해 작동을 확인했습니다(2026-11-24). 응답 필드: `buldDongNm`(동), `buldFloorNm`(층), `buldHoNm`(호), `ldaQotaRate`(대지권 비율, "분자/분모", 예 `81.03/15622.1`은 15622.1분의 81.03), `buldNm`(건물명), `clsSeCodeNm`("현재" 등), `lastUpdtDt`. 한 필지에 여러 동·호가 한꺼번에 나옵니다(시험 필지 129건). 동 `0000`·호 `0000`은 건물 단위 행이고, 상가는 동 이름이 `상가지상1층`처럼 들어옵니다. 요청으로 동·호를 걸러낼 수 없어 필지 전체를 페이지로 읽고 Worker가 동·호를 맞춰 찾습니다.
+- `[코드]` 기존 Worker v6.2는 이 서비스를 `ldragsList`라는 이름으로 불러 호출이 실패했을 가능성이 큽니다. v6.3(`worker/worker.js`)에서 `ldaregList`로 고쳤습니다. 읽는 필드와 분자/분모 해석은 기존 코드가 이미 맞아 이름만 바꿨고, 응답 형식의 가짜 데이터로 시험했습니다(`10동 1033호` → `15622.1분의 81.03`, 동·호 표기 변형 3종, 없는 호는 빈 값). 실제 배포 후 확인은 남았습니다. JSON 응답(`format=json`)의 최상위 구조는 직접 보지 못했고, 목록을 어떤 구조에서도 꺼내는 기존 `extractVworldRows`에 의존합니다.
+
+### 3.2 브이월드에서 더 쓸 수 있는 서비스 (후보, 미적용) `[미결]`
+
+모두 `/ned/data/서비스명`에 `pnu`, `key`로 부릅니다. 응답 필드와 키 권한은 서비스마다 직접 호출해 확인해야 합니다. 브이월드 쪽 일일 호출 한도는 사실상 없고(오퍼레이션별 999,999,999), 병목은 Worker 요청당 외부 호출 50회입니다.
+
+| 서비스 | 내용 | 쓰임(후보) |
+|---|---|---|
+| `getLandUseAttr` | 토지이용계획(용도지역·지구) | 신탁을 쓸 수 없는 주택 판정 보조(농지 등) |
+| `getBuildingUse` | 용도별 건물 | 복합용도주택 판정 보조 |
+| `getBuildingAge` | 건축물 연령 | 재건축 경과연수 보조 |
+| `getLandMoveAttr` | 토지이동이력 | 지목 변경 확인 |
+| `getPossessionAttr` | 토지소유정보 | 소유·공유 구분(개인정보 포함 여부 확인 필요) |
+| `buldCongNmList`, `buldHoCoList`, `buldFloorCoList`, `buldRlnmList`, `buldSnList` | 대지권등록 기준 건물 동명, 호수, 층, 실명 | 동·호 목록의 보조 출처. 대단지 호출 한도 완화에 쓸 수 있을지 검토 |
+
+이미 쓰는 서비스: `getApartHousingPriceAttr`, `getIndvdHousingPriceAttr`, `getIndvdLandPriceAttr`, `getLandCharacteristics`, `ladfrlList`, `ldaregList`(v6.3).
 
 ## 4. 주택가격 산정 `[코드]`
 
