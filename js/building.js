@@ -190,84 +190,69 @@ function shortStrct(s) {
   return clean.replace(/구조$/, '조');
 }
 
-/* 부동산 요약정보 문자열 생성 (전체대지 + 대지권비율 통합 표기) */
+/* 부동산 요약정보 생성: 유형별(물건/건물/토지)로 나눈 줄 목록을 돌려준다(볼드 없음) */
 function buildCompactSummary(dong, ho, fl) {
-  var items = [];
+  var unit = [], bld = [], land = [];
   var b = S.bld, d = S.det, u = S.unit, l = S.land;
 
-  // 1) 동·호
+  // 물건: 동·호, 용도, 층/총층수
   var dh = ((dong && dong !== '(동 없음)') ? dong + ' ' : '') + (ho || '');
-  if (dh.trim()) items.push('<b>' + dh.trim() + '</b>');
-
-  // 2) 용도
+  if (dh.trim()) unit.push(dh.trim());
   var purps = (d && d.purps) || (u && u.purps) || (b && b.purps) || '';
-  if (purps) items.push('<b>' + purps + '</b>');
-
-  // 3) 구조
-  var st = shortStrct((d && d.strct) || (b && b.strct) || '');
-  if (st) items.push(st);
-
-  // 4) 층/총층수 ("3층/총15층")
+  if (purps) unit.push(purps);
   var maxFlr = getBuildingMaxFloor(dong);
-  if (fl != null && maxFlr) items.push('<b>' + fl + '층/총' + maxFlr + '층</b>');
-  else if (fl != null) items.push('<b>' + fl + '층</b>');
-  else if (maxFlr) items.push('총' + maxFlr + '층');
+  if (fl != null && maxFlr) unit.push(fl + '층/총' + maxFlr + '층');
+  else if (fl != null) unit.push(fl + '층');
+  else if (maxFlr) unit.push('총' + maxFlr + '층');
 
-  // 5) 단지규모 ("4개동/270세대")
+  // 건물: 구조, 단지규모, 사용승인일(경과연수)
+  var st = shortStrct((d && d.strct) || (b && b.strct) || '');
+  if (st) bld.push(st);
   if (b) {
     var dCnt = b.dongs ? b.dongs.length : 0;
     var hCnt = b.totalHhld != null ? b.totalHhld : b.hhldCnt;
     var scale = [];
     if (dCnt > 0) scale.push(dCnt + '개동');
     if (hCnt != null && hCnt > 0) scale.push(won(hCnt) + '세대');
-    if (scale.length) items.push(scale.join('/'));
+    if (scale.length) bld.push(scale.join('/'));
   }
-
-  // 6) 사용승인일 및 경과연수 ("사용승인 1999.09.21(27년 경과)")
   if (b && b.useAprDay && String(b.useAprDay).length >= 4) {
     var ua = String(b.useAprDay);
-    var bYear = Number(ua.slice(0, 4));
-    var elapsed = Math.max(0, new Date().getFullYear() - bYear);
-    items.push('사용승인 ' + fmtDay(ua) + '(' + elapsed + '년 경과)');
+    var elapsed = Math.max(0, new Date().getFullYear() - Number(ua.slice(0, 4)));
+    bld.push('사용승인 ' + fmtDay(ua) + '(' + elapsed + '년 경과)');
   }
 
-  // 7) 전체대지 및 대지권비율 통합 표기
+  // 토지: 전체대지, 대지권비율, 공시지가
   var isCollective = (b && b.collective) || !!ho;
   var lr = computeBestLandRight();
   var jimok = (l && l.jimok) || '';
-
   if (isCollective) {
-    if (lr.totalLandAr) items.push('전체대지 ' + won(lr.totalLandAr) + '㎡' + (jimok ? '(' + jimok + ')' : ''));
-    if (lr.ratioText) {
-      items.push('대지권비율 <b>' + lr.ratioText + '</b>');
-    }
-  } else {
-    if (jimok || lr.totalLandAr) {
-      items.push('토지 ' + (jimok ? jimok + ' ' : '') + (lr.totalLandAr ? won(lr.totalLandAr) + '㎡' : ''));
-    }
+    if (lr.totalLandAr) land.push('전체대지 ' + won(lr.totalLandAr) + '㎡' + (jimok ? '(' + jimok + ')' : ''));
+    if (lr.ratioText) land.push('대지권비율 ' + lr.ratioText);
+  } else if (jimok || lr.totalLandAr) {
+    land.push('토지 ' + (jimok ? jimok + ' ' : '') + (lr.totalLandAr ? won(lr.totalLandAr) + '㎡' : ''));
   }
-
-  // 8) 개별공시지가
   if (l && l.landPricePerM2) {
     var lpStr = '공시지가 ' + won(l.landPricePerM2) + '원/㎡';
-    if (!isCollective && l.landPriceTotal) {
-      lpStr += '(토지총액 ' + won(l.landPriceTotal) + '원)';
-    }
-    items.push(lpStr);
+    if (!isCollective && l.landPriceTotal) lpStr += '(토지총액 ' + won(l.landPriceTotal) + '원)';
+    land.push(lpStr);
   }
 
-  return items.join(' · ');
+  var out = [];
+  if (unit.length) out.push('물건: ' + unit.join(' · '));
+  if (bld.length) out.push('건물: ' + bld.join(' · '));
+  if (land.length) out.push('토지: ' + land.join(' · '));
+  return out;
 }
 
 function renderBldBanner(dong, ho, fl) {
-  var summaryLine = buildCompactSummary(dong, ho, fl);
-  var lines = [summaryLine];
+  var lines = buildCompactSummary(dong, ho, fl);
   var warn = false;
 
   var isCollective = (S.bld && S.bld.collective) || !!ho;
   var lr = computeBestLandRight();
   if (isCollective && lr.ratioText) {
-    lines.push('<small style="color:#5c3c00;">※ 대지권비율(<b>' + lr.ratioText + '</b>' + (lr.source ? ' · ' + lr.source : '') + ')은 공부 기준 자동추출값이므로, <b>등기서면 출력 전 등기사항전부증명서와 반드시 대조 확인 및 수정</b>하시기 바랍니다.</small>');
+    lines.push('<small>※ 대지권비율은 대지권등록부API 기준값으로 등기서면 작성시에는 등기부등본 확인 필요</small>');
   }
 
   if (S.det && S.det.area == null && ho) {
