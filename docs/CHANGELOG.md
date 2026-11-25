@@ -7,6 +7,11 @@
 - `windstorm2/home_pension`(운영용): `index_old.html`("주택연금 서류 가이드")를 `index.html`로, 기존 `index.html`(통합 상담·신청 보조도구 v6.0, 한 파일)을 `index_new.html`로 이름 변경(커밋 `9e2fe8c`). 사용자 요청. 내용 변경 없음. 다른 파일의 참조는 없음을 확인
 - 이 저장소(`test`)의 코드는 변경 없음
 
+## 2026-11-25 18:20 Worker v6.7: 브이월드 요청 머리글을 브라우저와 같게
+- v6.6 배포 후에도 남천동에서 HTTP 520. PNU는 사용자가 브라우저로 성공한 값(2650010500104900000)과 같았고, `/api/land` 응답에서 지목·지적면적·공시지가도 모두 null이어서 Worker의 브이월드 호출 전반이 실패하는 것으로 판단했습니다.
+- `vworldHeaders`로 Referer(등록 URL)·Origin·브라우저 User-Agent·Accept-Language를 붙였습니다. 대조용으로 2번째 시도는 머리글 없이(variant 1) 보내고 `ldareg.tries`에 `v`로 기록합니다.
+- 백업: `backup/202611251815/worker_v6.6_before.js`.
+
 ## 2026-11-25 17:55 Worker v6.6: 브이월드 호출에 domain 추가
 - `worker/worker.js` v6.6: `vworldCall`·`vworldRaw`가 `domain` 변수를 보냅니다(기본 `https://windstorm2.github.io/home_pension/`, 변수 `VWORLD_DOMAIN`으로 변경 가능). 브라우저 시험에서 `domain`이 없으면 `INCORRECT_KEY`가 나왔습니다.
 - 백업: `backup/202611251750/worker_v6.5_before.js`. 요건정의 3.1에 `ldaregList` 요청변수와 시험 결과 기록.

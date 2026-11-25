@@ -1,5 +1,5 @@
 /**
- * 주택연금 상담 보조도구 v6.6 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.7 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
@@ -68,7 +68,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.6',
+          version: 'v6.7',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -77,7 +77,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.6' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.7' }, req);
       if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
         return json({ error: 'unauthorized' }, req, 401);
       }
@@ -252,6 +252,22 @@ function normalizeLandRightRatio(rawRate, quotaArea, bldPlatArea, cadastreLandAr
   return { ratioNum: num, ratioDen: den, regRatioText };
 }
 
+/* 브이월드 요청 머리글. 브라우저로는 되는데 Worker만 520이 나서, 브라우저와 같은 Referer/Origin/User-Agent를 보낸다.
+   variant 1은 사용자 지정 머리글 없이(런타임 기본값만) 보내는 대조용이다. */
+function vworldHeaders(ctx, fmt, variant) {
+  if (variant === 1) return {};
+  const dom = ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN;
+  let origin = dom;
+  try { origin = new URL(dom).origin; } catch {}
+  return {
+    Accept: fmt === 'xml' ? 'application/xml,text/xml,*/*' : 'application/json,text/plain,*/*',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.5',
+    Referer: dom,
+    Origin: origin,
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+  };
+}
+
 /* ───── 2. 브이월드(V-World) 토지대장 · 개별공시지가 · 대지권등록목록(ldaregList) 조회 (/api/land) ───── */
 async function vworldCall(endpoint, params, ctx) {
   if (!ctx.env.VWORLD_KEY) return null;
@@ -265,9 +281,7 @@ async function vworldCall(endpoint, params, ctx) {
     domain: ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN,
     ...params,
   });
-  const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, {
-    headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 homepension-branch-tool' },
-  });
+  const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, { headers: vworldHeaders(ctx, 'json', 0) });
   if (!res.ok) return null;
   try { return await res.json(); } catch { return null; }
 }
@@ -289,16 +303,14 @@ function extractVworldRows(res) {
 }
 
 /* 대지권등록목록 전용 호출: 실패해도 HTTP 상태와 본문 앞부분을 돌려줘 사유를 알 수 있게 한다 */
-async function vworldRaw(endpoint, params, ctx, fmt) {
+async function vworldRaw(endpoint, params, ctx, fmt, variant) {
   if (!ctx.env.VWORLD_KEY) return { status: 0, text: 'VWORLD_KEY 미등록' };
   ctx.n = (ctx.n || 0) + 1;
   const key = ctx.env.VWORLD_KEY;
   const dom = ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN;
   const p = new URLSearchParams({ key, format: fmt || 'json', numOfRows: '100', pageNo: '1', domain: dom, ...params });
   try {
-    const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, {
-      headers: { Accept: fmt === 'xml' ? '*/*' : 'application/json', 'User-Agent': 'Mozilla/5.0 homepension-branch-tool' },
-    });
+    const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, { headers: vworldHeaders(ctx, fmt, variant || 0) });
     const text = await res.text();
     return { status: res.status, text: String(text).split(key).join('***') };
   } catch (e) {
@@ -405,17 +417,17 @@ async function fetchLdragsRight(pnu, dong, ho, ctx) {
     return null;
   };
 
-  const fetchPage = async (pg, fmt, size) => {
-    const r = await vworldRaw('ldaregList', { pnu, numOfRows: String(size), pageNo: String(pg) }, ctx, fmt);
+  const fetchPage = async (pg, fmt, size, hv) => {
+    const r = await vworldRaw('ldaregList', { pnu, numOfRows: String(size), pageNo: String(pg) }, ctx, fmt, hv);
     return { r, parsed: ldParse(r.text) };
   };
 
   // 1쪽: 조건을 바꿔 가며 성공하는 방식을 찾는다(JSON 500건 → JSON 100건 → XML 100건). 성공한 방식을 이후 쪽에도 쓴다.
-  let fmt = '', size = 0, first = null;
-  for (const [f, n] of [['json', 500], ['json', 100], ['xml', 100]]) {
-    const { r, parsed } = await fetchPage(1, f, n);
-    meta.tries.push({ f, n, s: r.status, h: parsed.ok ? 'OK' : String(r.text).replace(/\s+/g, ' ').slice(0, 90) });
-    if (parsed.ok) { fmt = f; size = n; first = parsed; break; }
+  let fmt = '', size = 0, first = null, hvOk = 0;
+  for (const [f, n, hv] of [['json', 500, 0], ['json', 100, 1], ['xml', 100, 0]]) {
+    const { r, parsed } = await fetchPage(1, f, n, hv);
+    meta.tries.push({ f, n, v: hv, s: r.status, h: parsed.ok ? 'OK' : String(r.text).replace(/\s+/g, ' ').slice(0, 90) });
+    if (parsed.ok) { fmt = f; size = n; first = parsed; hvOk = hv; break; }
     if (ctx.n >= 38) break;
   }
   meta.pages = 1;
@@ -435,7 +447,7 @@ async function fetchLdragsRight(pnu, dong, ho, ctx) {
     if (room <= 0) { meta.stop = 'budget'; break; }
     const batch = [];
     for (let k = 0; k < Math.min(6, room) && pg <= totalPages; k++, pg++) batch.push(pg);
-    const rs = await Promise.all(batch.map(p2 => fetchPage(p2, fmt, size)));
+    const rs = await Promise.all(batch.map(p2 => fetchPage(p2, fmt, size, hvOk)));
     meta.pages += batch.length;
     for (const { parsed } of rs) {
       if (!parsed.ok || !parsed.rows.length) continue;
