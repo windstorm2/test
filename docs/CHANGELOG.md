@@ -7,6 +7,12 @@
 - `windstorm2/home_pension`(운영용): `index_old.html`("주택연금 서류 가이드")를 `index.html`로, 기존 `index.html`(통합 상담·신청 보조도구 v6.0, 한 파일)을 `index_new.html`로 이름 변경(커밋 `9e2fe8c`). 사용자 요청. 내용 변경 없음. 다른 파일의 참조는 없음을 확인
 - 이 저장소(`test`)의 코드는 변경 없음
 
+## 2026-11-25 19:30 Worker v6.8 + Vercel 중계 서버
+- 시험 결과: Worker 직접 호출은 머리글을 바꿔도 모두 HTTP 520(지목·공시지가도 비어 있음, 다세대도 동일). 브라우저 직접 호출은 CORS로 차단(`Access-Control-Allow-Origin` 없음). 따라서 Cloudflare 밖 서버를 거치기로 했습니다.
+- `vercel-relay/`(api/vworld.js, vercel.json 서울 리전 icn1, README) 추가: `X-Relay-Secret` 인증, 허용 서비스·변수만 전달, 키는 환경변수에만 두고 응답에서 가림.
+- `worker/worker.js` v6.8: `VWORLD_RELAY_URL`이 있으면 `vworldRequest`가 중계 서버로 호출(없으면 직접 호출), `vworldReady`, health에 `vworldRelay`. 백업: `backup/202611251815/`.
+- 중계 함수는 모의 fetch로 인증(401)·허용 목록(400)·키 가림을 시험했습니다. 실제 Vercel에서 520이 안 나는지는 배포 후 확인이 남았습니다.
+
 ## 2026-11-25 18:20 Worker v6.7: 브이월드 요청 머리글을 브라우저와 같게
 - v6.6 배포 후에도 남천동에서 HTTP 520. PNU는 사용자가 브라우저로 성공한 값(2650010500104900000)과 같았고, `/api/land` 응답에서 지목·지적면적·공시지가도 모두 null이어서 Worker의 브이월드 호출 전반이 실패하는 것으로 판단했습니다.
 - `vworldHeaders`로 Referer(등록 URL)·Origin·브라우저 User-Agent·Accept-Language를 붙였습니다. 대조용으로 2번째 시도는 머리글 없이(variant 1) 보내고 `ldareg.tries`에 `v`로 기록합니다.

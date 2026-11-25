@@ -1,9 +1,10 @@
 /**
- * 주택연금 상담 보조도구 v6.7 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.8 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
- *  - VWORLD_KEY     : 브이월드(V-World) 오픈API 인증키
+ *  - VWORLD_KEY     : 브이월드(V-World) 오픈API 인증키(중계 서버를 쓰면 Worker에는 없어도 됨)
+ *  - VWORLD_RELAY_URL / VWORLD_RELAY_SECRET : (선택) Cloudflare 밖 중계 서버(vercel-relay/) 주소·비밀값. 있으면 브이월드를 그쪽으로 호출
  *  - BRANCH_TOKEN   : 지점 접속 토큰 (선택)
  */
 const CFG = {
@@ -68,16 +69,17 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.7',
+          version: 'v6.8',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
+          vworldRelay: !!env.VWORLD_RELAY_URL,
           needToken: !!env.BRANCH_TOKEN,
           tokenOk: !env.BRANCH_TOKEN || req.headers.get('X-Branch-Token') === env.BRANCH_TOKEN,
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.7' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.8' }, req);
       if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
         return json({ error: 'unauthorized' }, req, 401);
       }
@@ -268,20 +270,29 @@ function vworldHeaders(ctx, fmt, variant) {
   };
 }
 
+/* 브이월드 호출 주소·머리글을 만든다. Cloudflare Worker에서 브이월드를 직접 부르면 HTTP 520으로 막혀서,
+   변수 VWORLD_RELAY_URL(+VWORLD_RELAY_SECRET)이 있으면 Cloudflare 밖의 중계 서버(vercel-relay/)를 거친다. 없으면 직접 호출한다. */
+function vworldRequest(endpoint, params, ctx, fmt, variant) {
+  const rl = ctx.env.VWORLD_RELAY_URL;
+  if (rl) {
+    const q = new URLSearchParams({ endpoint });
+    for (const [k, v] of Object.entries(params)) if (k !== 'key' && k !== 'domain') q.set(k, v);
+    const sep = rl.includes('?') ? '&' : '?';
+    return { url: `${rl}${sep}${q}`, headers: { 'X-Relay-Secret': ctx.env.VWORLD_RELAY_SECRET || '' } };
+  }
+  const p = new URLSearchParams({ key: ctx.env.VWORLD_KEY, domain: ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN, ...params });
+  return { url: `${CFG.VWORLD}/${endpoint}?${p}`, headers: vworldHeaders(ctx, fmt, variant || 0) };
+}
+
+function vworldReady(ctx) { return !!(ctx.env.VWORLD_RELAY_URL || ctx.env.VWORLD_KEY); }
+
 /* ───── 2. 브이월드(V-World) 토지대장 · 개별공시지가 · 대지권등록목록(ldaregList) 조회 (/api/land) ───── */
 async function vworldCall(endpoint, params, ctx) {
-  if (!ctx.env.VWORLD_KEY) return null;
+  if (!vworldReady(ctx)) return null;
   ctx.n = (ctx.n || 0) + 1;
-  // 중요: 브이월드 NED API는 numOfRows가 1000을 넘거나 도메인이 안 맞으면 에러가 나므로 안전한 기본값(500) 사용
-  const p = new URLSearchParams({
-    key: ctx.env.VWORLD_KEY,
-    format: 'json',
-    numOfRows: '500',
-    pageNo: '1',
-    domain: ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN,
-    ...params,
-  });
-  const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, { headers: vworldHeaders(ctx, 'json', 0) });
+  // 중요: 브이월드 NED API는 numOfRows가 1000을 넘으면 에러가 나므로 안전한 기본값(500) 사용
+  const rq = vworldRequest(endpoint, { format: 'json', numOfRows: '500', pageNo: '1', ...params }, ctx, 'json', 0);
+  const res = await fetch(rq.url, { headers: rq.headers });
   if (!res.ok) return null;
   try { return await res.json(); } catch { return null; }
 }
@@ -304,17 +315,17 @@ function extractVworldRows(res) {
 
 /* 대지권등록목록 전용 호출: 실패해도 HTTP 상태와 본문 앞부분을 돌려줘 사유를 알 수 있게 한다 */
 async function vworldRaw(endpoint, params, ctx, fmt, variant) {
-  if (!ctx.env.VWORLD_KEY) return { status: 0, text: 'VWORLD_KEY 미등록' };
+  if (!vworldReady(ctx)) return { status: 0, text: 'VWORLD_KEY 미등록' };
   ctx.n = (ctx.n || 0) + 1;
-  const key = ctx.env.VWORLD_KEY;
-  const dom = ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN;
-  const p = new URLSearchParams({ key, format: fmt || 'json', numOfRows: '100', pageNo: '1', domain: dom, ...params });
+  const key = ctx.env.VWORLD_KEY || '';
+  const redact = t => (key ? String(t).split(key).join('***') : String(t));
+  const rq = vworldRequest(endpoint, { format: fmt || 'json', numOfRows: '100', pageNo: '1', ...params }, ctx, fmt, variant);
   try {
-    const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, { headers: vworldHeaders(ctx, fmt, variant || 0) });
+    const res = await fetch(rq.url, { headers: rq.headers });
     const text = await res.text();
-    return { status: res.status, text: String(text).split(key).join('***') };
+    return { status: res.status, text: redact(text) };
   } catch (e) {
-    return { status: -1, text: String(e && e.message || e).split(key).join('***') };
+    return { status: -1, text: redact(e && e.message || e) };
   }
 }
 
@@ -463,8 +474,8 @@ async function fetchLdragsRight(pnu, dong, ho, ctx) {
 async function landInfo(sp, ctx) {
   const pnu = makePnu(sp);
   const bldPlatArea = Number(sp.get('platArea') || 0) || null;
-  if (!pnu) return { hasKey: !!ctx.env.VWORLD_KEY, pnu: null };
-  if (!ctx.env.VWORLD_KEY) {
+  if (!pnu) return { hasKey: vworldReady(ctx), pnu: null };
+  if (!vworldReady(ctx)) {
     return { hasKey: false, pnu, reason: 'VWORLD_KEY 미등록' };
   }
 
@@ -897,7 +908,7 @@ async function bldPriceChunk(sp, ctx) {
   const pagesParam = (sp.get('pages') || '1').split(',').map(Number).filter(n => n >= 1);
   const pagesToFetch = pagesParam.slice(0, 2);
 
-  if (pagesToFetch.includes(1) && ctx.env.VWORLD_KEY) {
+  if (pagesToFetch.includes(1) && vworldReady(ctx)) {
     const pnu = makePnu(sp);
     if (pnu && ho) {
       const aptRes = await vworldCall('getApartHousingPriceAttr', { pnu, stdrYear: String(yr), numOfRows: '500' }, ctx);
