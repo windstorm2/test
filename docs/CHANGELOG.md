@@ -7,6 +7,10 @@
 - `windstorm2/home_pension`(운영용): `index_old.html`("주택연금 서류 가이드")를 `index.html`로, 기존 `index.html`(통합 상담·신청 보조도구 v6.0, 한 파일)을 `index_new.html`로 이름 변경(커밋 `9e2fe8c`). 사용자 요청. 내용 변경 없음. 다른 파일의 참조는 없음을 확인
 - 이 저장소(`test`)의 코드는 변경 없음
 
+## 2026-11-25 17:55 Worker v6.6: 브이월드 호출에 domain 추가
+- `worker/worker.js` v6.6: `vworldCall`·`vworldRaw`가 `domain` 변수를 보냅니다(기본 `https://windstorm2.github.io/home_pension/`, 변수 `VWORLD_DOMAIN`으로 변경 가능). 브라우저 시험에서 `domain`이 없으면 `INCORRECT_KEY`가 나왔습니다.
+- 백업: `backup/202611251750/worker_v6.5_before.js`. 요건정의 3.1에 `ldaregList` 요청변수와 시험 결과 기록.
+
 ## 2026-11-24 18:00 Worker v6.5: 대지권등록 호출 실패 대응
 
 - 사용자 보고(스크린샷): v6.4 배포 후 부산 수영구 남천동 단지(대단지 아님)에서 "대지권등록 조회 실패(브이월드 응답 없음)". 변경 전 사본: `backup/202611241734/`(`worker_v6.4_before.js`, `building.js`)

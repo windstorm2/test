@@ -27,7 +27,7 @@ test/
 │  ├─ DIRECTORY.md          이 문서
 │  └─ CHANGELOG.md          변경 이력
 ├─ forms/               출력 서식 (아직 비어 있음)
-├─ worker/              Cloudflare Worker 코드 (worker.js v6.5)
+├─ worker/              Cloudflare Worker 코드 (worker.js v6.6)
 └─ backup/              백업
    ├─ 202611222155/     2026-11-22 21:55 시점의 기존 파일 전체
    ├─ 202611230850/     v6.1 변경 전 코드
@@ -82,7 +82,7 @@ Git은 빈 폴더를 저장하지 못하므로 `forms/`, `worker/`, `backup/`에
 | 폴더 | 들어갈 내용 |
 |---|---|
 | `forms/` | 개인정보 동의서, 확약서, 약정서, 등기서류, 설명서. 공통 데이터를 읽어 자동으로 채움 |
-| `worker/worker.js` | Worker 코드(v6.5). Cloudflare 배포는 별도로 해야 함 |
+| `worker/worker.js` | Worker 코드(v6.6). Cloudflare 배포는 별도로 해야 함 |
 
 ## 백업 규칙
 

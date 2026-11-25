@@ -1,5 +1,5 @@
 /**
- * 주택연금 상담 보조도구 v6.5 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.6 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
@@ -12,6 +12,9 @@ const CFG = {
   JUSO: 'https://business.juso.go.kr/addrlink/addrLinkApi.do',
   HF_SISE: 'https://www.hf.go.kr/hf/hinet/sise_zipcode.jsp',
   VWORLD: 'https://api.vworld.kr/ned/data',
+  // 브이월드 인증키는 발급 때 등록한 URL(도메인)과 함께 보내야 한다(없으면 INCORRECT_KEY). 2026-11-25 브라우저 시험으로 확인.
+  // Cloudflare 변수 VWORLD_DOMAIN으로 바꿀 수 있다.
+  VWORLD_DOMAIN: 'https://windstorm2.github.io/home_pension/',
   PREF_CAP: 250_000_000,
   INDC: [
     ['01', '정액형', null],
@@ -65,7 +68,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.5',
+          version: 'v6.6',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -74,7 +77,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.5' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.6' }, req);
       if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
         return json({ error: 'unauthorized' }, req, 401);
       }
@@ -259,6 +262,7 @@ async function vworldCall(endpoint, params, ctx) {
     format: 'json',
     numOfRows: '500',
     pageNo: '1',
+    domain: ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN,
     ...params,
   });
   const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, {
@@ -289,7 +293,8 @@ async function vworldRaw(endpoint, params, ctx, fmt) {
   if (!ctx.env.VWORLD_KEY) return { status: 0, text: 'VWORLD_KEY 미등록' };
   ctx.n = (ctx.n || 0) + 1;
   const key = ctx.env.VWORLD_KEY;
-  const p = new URLSearchParams({ key, format: fmt || 'json', numOfRows: '100', pageNo: '1', ...params });
+  const dom = ctx.env.VWORLD_DOMAIN || CFG.VWORLD_DOMAIN;
+  const p = new URLSearchParams({ key, format: fmt || 'json', numOfRows: '100', pageNo: '1', domain: dom, ...params });
   try {
     const res = await fetch(`${CFG.VWORLD}/${endpoint}?${p}`, {
       headers: { Accept: fmt === 'xml' ? '*/*' : 'application/json', 'User-Agent': 'Mozilla/5.0 homepension-branch-tool' },
