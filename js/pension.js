@@ -5,18 +5,62 @@
  * 불러오는 순서: common → api → customer → building → price → pension → application → main
  */
 
+/* ───── 보증금액 계산 ─────
+ * 개월 수 = 12 × (101 − 연소자 만나이). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
+ * 1회차: 초기보증료 = 내림(주택가격 × 1%), 이후 회차는 없음.
+ * 매 회차: 기준 = 직전 보증잔액 + (1회차만 초기보증료) + 월지급금
+ *          보증료 = 내림(기준 × 1% / 12), 이자 = 내림((기준 + 보증료) × 이자율 / 12)
+ *          보증잔액 = 기준 + 보증료 + 이자
+ * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
+function calcGuarantee(monthly, housePrc, ratePct, age) {
+  if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0)) return null;
+  var months = 12 * (101 - age);
+  if (!(months > 0)) return null;
+  var rate = ratePct / 100, init = Math.floor(housePrc * 0.01), bal = 0;
+  for (var i = 1; i <= months; i++) {
+    var base = bal + (i === 1 ? init : 0) + monthly;
+    var fee = Math.floor(base * 0.01 / 12);
+    var intr = Math.floor((base + fee) * rate / 12);
+    bal = base + fee + intr;
+  }
+  return { months: months, balance: bal, amount: Math.floor(bal / 1000000) * 1000000 };
+}
+
+function guaranteeRateSaved() {
+  try { return localStorage.getItem('gRate') || ''; } catch (e) { return ''; }
+}
+
+function updateGuarantee(r) {
+  var el = $('gAmt'), inp = $('gRate');
+  if (!el || !inp) return;
+  var row = r.rows && r.rows[0];
+  var monthly = row && !row.error ? row.first : null;
+  var age = (typeof colInputs === 'function') ? colInputs().age : null;
+  if (r.status === 'loan_pref' || monthly == null) { el.textContent = '- (월지급금 산출 불가)'; return; }
+  if (inp.value === '') { el.textContent = '- (이자율을 입력하면 계산됩니다)'; return; }
+  var g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age);
+  el.textContent = g ? won(g.amount) + '원' : '-';
+  el.title = g ? g.months + '회차 보증잔액 ' + won(g.balance) + '원' : '';
+}
+
 function renderPension(r) {
   $('resultSec').style.display = '';
-  var basis = '일시인출금 ' + won(r.lump) + '원' + (r.lumpUsed !== r.lump ? ' (한도 조정 → ' + won(r.lumpUsed) + '원)' : '') +
-              ', 우대자격 ' + (r.prefer ? '충족' : '미충족') + (r.imax != null ? ', 최대인출한도 ' + won(r.imax) + '원' : '');
-  var h = '<div><small>평가주택가격</small> <b>' + won(r.housePrc) + '원</b> <small>(' + baseLabel() + ')</small></div>';
-  h += '<div style="margin-top:6px;"><small>적용 지급방식</small> <span class="big-method">' +
-       (r.status === 'loan_pref' ? '대출상환우대방식 (API 미지원 · 별도상담)' : r.methodName + '방식') +
-       '</span> <small>· 판정 근거: ' + basis + '</small></div>';
+  var age = (typeof colInputs === 'function') ? colInputs().age : null;
+  var methodTxt = r.status === 'loan_pref' ? '대출상환우대방식 (API 미지원 · 별도상담)' : r.methodName + '방식';
+  var h = '<div>연소자 ' + (age == null ? '-' : age) + '세, 주택가격 ' + won(r.housePrc) + '원(' + baseLabel() + '), ' + methodTxt +
+          ', 인출한도(' + (r.imax != null ? won(r.imax) : '-') + ') ' + won(r.lumpUsed) +
+          (r.lumpUsed !== r.lump ? ' (한도 조정 전 ' + won(r.lump) + '원)' : '') + '</div>';
+  h += '<div style="margin-top:4px;">보증금액 <span id="gAmt"></span> ' +
+       '<small>· 이자율(연 %) <input type="number" id="gRate" step="0.01" min="0" style="width:70px;" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"></small></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
   });
   $('summary').innerHTML = h;
+  $('gRate').oninput = function() {
+    try { localStorage.setItem('gRate', this.value); } catch (e) {}
+    updateGuarantee(r);
+  };
+  updateGuarantee(r);
 
   var rows = r.rows;
   var th = '<tr><th>구간</th>';
