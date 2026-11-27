@@ -48,7 +48,7 @@ function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주
  *          보증잔액 = round(기준 + 보증료 + 이자, 0)
  * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
 function calcGuarantee(monthly, housePrc, ratePct, age) {
-  if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0)) return null;
+  if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0) || ratePct > 30) return null; // 이자율 30% 초과는 입력 오류로 본다
   var effAge = Math.min(age, 90); // 연소자 나이 상한 90세 적용 (최소 132회차)
   var months = 12 * (101 - effAge);
   if (!(months > 0)) return null;
@@ -62,8 +62,14 @@ function calcGuarantee(monthly, housePrc, ratePct, age) {
   return { months: months, balance: bal, amount: Math.floor(bal / 1000000) * 1000000 };
 }
 
+/* 저장된 이자율. 예전 버전이 99(숨김 코드)나 `**`를 저장해 둔 경우 읽지 않고 지운다. */
 function guaranteeRateSaved() {
-  try { return localStorage.getItem('gRate') || ''; } catch (e) { return ''; }
+  try {
+    var v = localStorage.getItem('gRate') || '';
+    var n = Number(v);
+    if (v !== '' && !(n >= 0 && n < SECRET_CODE)) { localStorage.removeItem('gRate'); return ''; }
+    return v;
+  } catch (e) { return ''; }
 }
 
 /* 오류 문구를 요약 줄에 맞게 줄인다 */
