@@ -5,6 +5,31 @@
  * 불러오는 순서: common → api → customer → building → price → pension → application → main
  */
 
+/* ───── 숨긴 기준값(99) ─────
+ * 이자율·주택가격상승률에 99를 입력하면 화면에서 계산하지 않고 Worker(/api/calc)가 Cloudflare 변수 값으로 계산해 결과만 돌려준다.
+ * 같은 입력은 다시 호출하지 않도록 결과를 기억한다. 오류는 5초만 기억해 다시 시도할 수 있게 한다. */
+var SECRET_CODE = 99, secCache = {}, secPending = {};
+
+function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주택가격
+  var key = kind === 'g' ? ['g', p.monthly, p.housePrc, p.age].join('|') : ['f', p.housePrc, p.age].join('|');
+  if (secCache[key]) return secCache[key];
+  if (!secPending[key]) {
+    secPending[key] = 1;
+    var body = kind === 'g' ? { housePrc: p.housePrc, age: p.age, monthly: p.monthly, useRate: true } : { housePrc: p.housePrc, age: p.age, useGrowth: true };
+    api('/api/calc', { method: 'POST', body: JSON.stringify(body) }).then(function(j) {
+      secCache[key] = { state: 'ok', val: kind === 'g' ? (j.guarantee && j.guarantee.amount) : j.future };
+    }).catch(function(e) {
+      secCache[key] = { state: 'err', msg: e.message };
+      setTimeout(function() { delete secCache[key]; }, 5000);
+    }).then(function() {
+      delete secPending[key];
+      if (S.pensionRes) updateGuarantee(S.pensionRes);
+      if (typeof colRefresh === 'function') colRefresh();
+    });
+  }
+  return { state: 'wait' };
+}
+
 /* ───── 보증금액 계산 ─────
  * 개월 수 = 12 × (101 − min(연소자 만나이, 90). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
  * 1회차: 초기보증료 = 내림(주택가격 × 1%), 이후 회차는 없음.
@@ -40,15 +65,24 @@ function updateGuarantee(r) {
   var age = (typeof colInputs === 'function') ? colInputs().age : null;
   if (r.status === 'loan_pref' || monthly == null) { el.textContent = '- (월지급금 산출 불가)'; return; }
   if (inp.value === '') { el.textContent = '- (이자율을 입력하면 계산됩니다)'; return; }
-  var g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age);
+  var g;
+  if (Number(inp.value) === SECRET_CODE) { // 지점 기준값: Worker가 계산한 결과만 받는다
+    if (age == null) { el.textContent = '-'; return; }
+    var sg = secretGet('g', { monthly: monthly, housePrc: r.housePrc, age: age });
+    if (sg.state === 'wait') { el.textContent = '계산 중...'; return; }
+    if (sg.state === 'err') { el.textContent = '- (' + sg.msg + ')'; return; }
+    g = sg.val != null ? { amount: sg.val } : null;
+  } else {
+    g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age);
+  }
   el.textContent = g ? won(g.amount) + '원' : '-';
   if (st && g) {
     // 보증금액의 120%(100만 원 미만 내림), 설정금액 = 100세말 예상주택가격(등록면허세 등 설정 비용 계산에 쓰는 값)
     var ci = colInputs();
-    var fv = colFutureValue(ci.housePrice, ci.age, ci.growth);
-    st.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원) · 설정금액 ' + (fv != null ? won(fv) + '원' : '- (Step 5 주택가격상승률을 입력하면 표시)');
+    var fi = colFutureInfo(ci.housePrice, ci.age, ci.growth);
+    st.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원) · 설정금액 ' + (fi.val != null ? won(fi.val) + '원' : (fi.note || '- (Step 5 주택가격상승률을 입력하면 표시)'));
   }
-  el.title = g ? g.months + '회차 보증잔액 ' + won(g.balance) + '원' : '';
+  el.title = g && g.months ? g.months + '회차 보증잔액 ' + won(g.balance) + '원' : '';
 }
 
 function renderPension(r) {

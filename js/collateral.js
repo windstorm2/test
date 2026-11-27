@@ -47,7 +47,7 @@ function colEval(inp) {
   // 3) 저당권 설정세금 참고값 (기존 도구의 식, 검증 전)
   if (inp.age != null && inp.housePrice > 0 && inp.growth != null) {
     var fv = colFutureValue(inp.housePrice, inp.age, inp.growth);
-    r.tax = { future: fv, tax: Math.round(fv * 0.0012) };
+    if (fv != null) r.tax = { future: fv, tax: Math.round(fv * 0.0012) };
   }
 
   // 4) 가족 구성과 소유 형태 → 위험 점수
@@ -179,11 +179,17 @@ function colAgeOf(b8) {
 
 /* 100세말 예상주택가격 = 주택가격 × (1 + 연상승률/12)^(12×(101−나이)), 100만 원 미만 내림.
    등록면허세 등 설정 비용 계산과 예상연금 요약의 설정금액이 같은 값을 쓰도록 한 곳에서 계산한다. */
-function colFutureValue(housePrice, age, growthPct) {
-  if (age == null || !(housePrice > 0) || growthPct == null || isNaN(growthPct)) return null;
+function colFutureInfo(housePrice, age, growthPct) {
+  if (age == null || !(housePrice > 0) || growthPct == null || isNaN(growthPct)) return { val: null };
+  if (growthPct === SECRET_CODE) { // 지점 기준값(99): Worker가 계산한 결과만 쓴다
+    var sg = secretGet('f', { housePrc: housePrice, age: age });
+    if (sg.state === 'ok') return { val: sg.val };
+    return { val: null, note: sg.state === 'wait' ? '계산 중...' : '- (' + sg.msg + ')' };
+  }
   var months = Math.max(0, (101 - age) * 12);
-  return Math.floor(housePrice * Math.pow(1 + growthPct / 100 / 12, months) / 1000000) * 1000000;
+  return { val: Math.floor(housePrice * Math.pow(1 + growthPct / 100 / 12, months) / 1000000) * 1000000 };
 }
+function colFutureValue(housePrice, age, growthPct) { return colFutureInfo(housePrice, age, growthPct).val; }
 
 function colInputs() {
   var val = function(id) { var e = $(id); return e ? String(e.value || '') : ''; };

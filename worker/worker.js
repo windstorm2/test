@@ -1,10 +1,11 @@
 /**
- * 주택연금 상담 보조도구 v6.9 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.10 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
  *  - SESSION_SECRET / LOGIN_ID / LOGIN_PW : (선택) 공용 로그인. 세 개가 모두 있으면 모든 /api/*가 1시간 출입증을 요구한다.
  *                    계정을 늘릴 때는 LOGIN_USERS="아이디:비밀번호,아이디:비밀번호"
+ *  - LONGTERM_AVG_IR / HP_GROWTH_RATE : (선택) 숨긴 기준값(연 %, 숫자만). 화면에서 이자율·상승률에 99를 입력하면 이 값으로 계산(/api/calc)
  *  - VWORLD_KEY     : 브이월드(V-World) 오픈API 인증키(중계 서버를 쓰면 Worker에는 없어도 됨)
  *  - VWORLD_RELAY_URL / VWORLD_RELAY_SECRET : (선택) Cloudflare 밖 중계 서버(vercel-relay/) 주소·비밀값. 있으면 브이월드를 그쪽으로 호출
  *  - BRANCH_TOKEN   : 지점 접속 토큰 (선택)
@@ -128,7 +129,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.9',
+          version: 'v6.10',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -141,7 +142,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.9' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.10' }, req);
       if (url.pathname === '/api/login') {
         if (req.method !== 'POST') return json({ error: 'POST only' }, req, 405);
         if (!needLogin(env)) return json({ error: '로그인이 설정되어 있지 않습니다.' }, req, 404);
@@ -170,6 +171,7 @@ export default {
         case '/api/land':      return json(await landInfo(sp, ctx), req);
         case '/api/sise':      return json(await hfSise(sp), req);
         case '/api/pension':   return json(await pensionV5(await req.json(), ctx), req);
+        case '/api/calc':      return json(calcSecret(await req.json(), env), req);
       }
       return json({ error: 'unknown api ' + url.pathname }, req, 404);
     } catch (e) {
@@ -178,6 +180,46 @@ export default {
     }
   },
 };
+
+/* ───── 숨긴 기준값 계산 (/api/calc) ─────
+ * 화면에서 이자율·주택가격상승률에 99를 입력하면, 화면 대신 이 함수가 Cloudflare 변수로 계산해 결과만 돌려준다.
+ *   LONGTERM_AVG_IR : 보증금액 계산용 추정 이자율(연 %, 예: 4.01)
+ *   HP_GROWTH_RATE  : 주택가격 상승률(연 %, 예: 2.5)
+ * 요청: { housePrc, age, monthly?, useRate?, useGrowth? } → 응답: { guarantee?:{amount}, future? } (잔액·이자율은 돌려주지 않는다) */
+function envPct(env, name) {
+  const v = parseFloat(String(env[name] == null ? '' : env[name]).replace('%', '').trim());
+  if (!Number.isFinite(v) || v < 0) throw new Error(`지점 기준값(${name})이 설정되지 않았거나 숫자가 아닙니다.`);
+  return v;
+}
+/* js/pension.js의 calcGuarantee, js/collateral.js의 colFutureValue와 같은 식이다. 바꿀 때는 세 곳을 함께 고친다. */
+function guaranteeAmount(monthly, housePrc, ratePct, age) {
+  const months = 12 * (101 - Math.min(age, 90));
+  if (!(months > 0)) return null;
+  const rate = ratePct / 100, init = Math.floor(housePrc * 0.01);
+  let bal = 0;
+  for (let i = 1; i <= months; i++) {
+    const base = bal + (i === 1 ? init : 0) + monthly;
+    const fee = Math.floor(base * 0.0095 / 12);
+    const intr = Math.floor((base + fee) * rate / 12);
+    bal = Math.round(base + fee + intr);
+  }
+  return Math.floor(bal / 1000000) * 1000000;
+}
+function futureHousePrice(housePrc, age, growthPct) {
+  const months = Math.max(0, (101 - age) * 12);
+  return Math.floor(housePrc * Math.pow(1 + growthPct / 100 / 12, months) / 1000000) * 1000000;
+}
+function calcSecret(b, env) {
+  const housePrc = Number(b.housePrc), age = Number(b.age), monthly = Number(b.monthly);
+  if (!(housePrc > 0) || !Number.isFinite(age) || age < 0 || age > 130) throw new Error('주택가격과 나이를 확인하세요.');
+  const out = {};
+  if (b.useRate) {
+    if (!(monthly > 0)) throw new Error('월지급금이 필요합니다.');
+    out.guarantee = { amount: guaranteeAmount(monthly, housePrc, envPct(env, 'LONGTERM_AVG_IR'), age) };
+  }
+  if (b.useGrowth) out.future = futureHousePrice(housePrc, age, envPct(env, 'HP_GROWTH_RATE'));
+  return out;
+}
 
 /* ───── 1. 도로명주소 검색 + 동·호 자동 파싱 + 부산·양산 우선 필터 ───── */
 function parseAddrQuery(raw) {
