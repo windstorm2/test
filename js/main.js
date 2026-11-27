@@ -12,6 +12,9 @@ $('tokenBtn').onclick = function() {
   checkToken();
 };
 
+$('loginForm').onsubmit = function(e) { e.preventDefault(); doLogin(); };
+$('logoutBtn').onclick = function() { lockScreen('로그아웃되었습니다.'); };
+
 checkToken();
 
 (function initToday() {

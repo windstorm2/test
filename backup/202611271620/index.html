@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주택연금 상담 보조도구 v6.1</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- 상단 고정 바 -->
+<div class="top-bar no-print">
+  <div class="top-bar-inner">
+    <h1>주택연금 통합 상담 보조도구 <small>v6.1</small></h1>
+    <div class="top-actions">
+      <button class="btn-top" onclick="document.getElementById('app-anchor').scrollIntoView({behavior:'smooth'})">📄 신청서로 이동</button>
+      <button class="btn-top accent" onclick="copyDocListText()">📋 필요서류 복사</button>
+      <button class="btn-top print" onclick="window.print()">🖨️ 신청서 A4 인쇄</button>
+      <button class="btn-top" onclick="resetAll()">초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STAGE 1: 상담 및 예상연금 산출 영역 (폭 210mm) ==================== -->
+<div class="consult-wrap no-print">
+
+  <!-- 0. 접속 토큰 설정 -->
+  <div class="c-sec" id="tokenSec" style="display:none;">
+    <h2>0. 지점 접속 토큰 설정</h2>
+    <div class="c-row">
+      <input type="password" class="c-input" id="tokenIn" placeholder="지점 공용 접속 토큰 (BRANCH_TOKEN)" autocomplete="off" style="max-width:300px;">
+      <button class="c-btn" id="tokenBtn">저장 및 확인</button>
+      <small id="tokenState"></small>
+    </div>
+  </div>
+
+  <!-- 1. 고객 기본 정보 (생년월일 6자리 입력) -->
+  <div class="c-sec">
+    <h2>
+      <span>Step 1. 고객 기본 정보 <small style="font-weight:400;color:#666;">(※ 신청자는 주택소유자 중 연소자 · 배우자 생년월일 미입력 시 배우자 없음 처리)</small></span>
+      <small id="apiStatus" style="font-size:12px;color:#2e7d32;"></small>
+    </h2>
+    <div class="c-grid-3">
+      <div>
+        <label class="c-label">신청자 생년월일 (6자리, 연소자)</label>
+        <input type="text" class="c-input" id="ownerBirth" inputmode="numeric" maxlength="6" placeholder="예: 601231">
+      </div>
+      <div>
+        <label class="c-label">배우자 생년월일 (6자리, 없으면 비워둠)</label>
+        <input type="text" class="c-input" id="spouseBirth" inputmode="numeric" maxlength="6" placeholder="예: 601231">
+      </div>
+      <div>
+        <label class="c-label">일시인출금 희망액 (원)</label>
+        <input type="number" class="c-input" id="lump" value="0" min="0" step="1000000">
+      </div>
+      <div>
+        <label class="c-label">기초연금 수급권자 (부부 중 1인)</label>
+        <select class="c-select" id="basicPension">
+          <option value="N">부 (아니오)</option>
+          <option value="Y">여 (예)</option>
+        </select>
+      </div>
+      <div>
+        <label class="c-label">1가구 1주택자 (부부 기준)</label>
+        <select class="c-select" id="oneHouse">
+          <option value="Y" selected>여 (1주택)</option>
+          <option value="N">부 (다주택)</option>
+        </select>
+      </div>
+      <div>
+        <label class="c-label">주택가격 2.5억 미만 여부</label>
+        <select class="c-select" id="under25">
+          <option value="U">모름 (평가주택가격 자동판정)</option>
+          <option value="Y">여 (2.5억 미만)</option>
+          <option value="N">부 (2.5억 이상)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 담보주택 주소 및 건축물·토지·대지권 조회 -->
+  <div class="c-sec">
+    <h2>
+      <span>Step 2. 담보주택 조회 <small style="font-weight:400;color:#666;">(시/도 생략 시 부산·경남 양산 자동 우선 검색)</small></span>
+    </h2>
+    <div class="c-row">
+      <input type="text" class="c-input" id="addrQ" placeholder="도로명주소, 지번 또는 건물명 + 동·호 (예: 수영강로 123 111동 222호)" style="flex:1;">
+      <button class="c-btn" id="addrBtn">주소 검색</button>
+    </div>
+    <div class="addr-list" id="addrList"></div>
+
+    <!-- 실시간 조회 상태 배지 -->
+    <div class="status-pills" id="fetchStatusBar" style="display:none;">
+      <span class="pill none" id="stUnit">건축물대장: 대기</span>
+      <span class="pill none" id="stLand">토지·대지권: 대기</span>
+      <span class="pill none" id="stPrice">공시가격: 대기</span>
+      <span class="pill none" id="stSise">HF 인터넷시세: 대기</span>
+    </div>
+
+    <div class="c-grid" style="margin-top:10px;">
+      <div><label class="c-label">동</label><select class="c-select" id="dongSel" disabled></select></div>
+      <div><label class="c-label">호</label><select class="c-select" id="hoSel" disabled></select></div>
+      <div><label class="c-label">전용면적 (㎡)</label><input type="text" class="c-input" id="area" readonly></div>
+      <div>
+        <label class="c-label">최저층(자동, 변경가능)</label>
+        <select class="c-select" id="lowest">
+          <option value="N">아니오 (일반평균가)</option>
+          <option value="Y">예 (하위평균가)</option>
+        </select>
+      </div>
+    </div>
+    <div id="bldMsg"></div>
+    <div id="bldPriceBanner"></div>
+  </div>
+
+  <!-- 3. 평가주택가격 산정 및 예상연금 조회 -->
+  <div class="c-sec">
+    <h2>Step 3. 주택가격 산정 및 예상연금 조회</h2>
+    <div>
+      <label class="c-label">주택가격 산정 기준 (출처 | 전용면적 | 기준일 | 적용가격)</label>
+      <select class="c-select" id="priceBase"></select>
+    </div>
+    <div class="c-grid" style="margin-top:10px;">
+      <div>
+        <label class="c-label">평가주택가격 (원)</label>
+        <input type="number" class="c-input" id="housePrc" step="1000000" placeholder="시세/공시가격 자동 반영 또는 직접 입력">
+      </div>
+      <div>
+        <label class="c-label">공시가격 보정비율 (%) — 시세 없을 때 적용</label>
+        <input type="number" class="c-input" id="ratio" min="100" max="200" value="140">
+      </div>
+    </div>
+    <div id="priceMsg"></div>
+    <div class="c-row" style="margin-top:12px;">
+      <button class="c-btn" id="calcBtn" style="padding:9px 20px;font-size:14.5px;">📊 예상연금 산출하기</button>
+      <small id="calcState" style="color:#555;"></small>
+    </div>
+  </div>
+
+  <!-- 4. 예상연금 비교 결과 -->
+  <div class="c-sec" id="resultSec" style="display:none;">
+    <h2>
+      <span>Step 4. 예상연금 산출 결과 (5종 비교)</span>
+      <small style="font-weight:400;color:#0b5cad;">※ 원하는 유형의 [신청서 반영] 클릭 시 신청서에 자동 체크됩니다.</small>
+    </h2>
+    <div id="summary"></div>
+    <div style="overflow-x:auto;">
+      <table class="p-table">
+        <thead id="pThead"></thead>
+        <tbody id="pTbody"></tbody>
+      </table>
+    </div>
+    <div class="banner info" style="margin-top:10px;">
+      본 결과는 상담 참고용 예상치이며 실제 월지급금은 공사의 주택가격 평가·보증심사 결과에 따라 달라질 수 있습니다. 공시가격 기준 산정 시 감정평가 결과에 따라 연금액이 변동될 수 있습니다.
+    </div>
+  </div>
+
+  <!-- 5. 담보방식 추천 (v6.1) -->
+  <div class="c-sec" id="colSec">
+    <h2>
+      <span>Step 5. 담보방식 추천</span>
+      <small style="font-weight:400;color:#0b5cad;">※ 위험 점수와 기준값은 확정 전 임시값입니다. 최종 선택은 고객이 합니다.</small>
+    </h2>
+    <div class="banner info" id="colBase"></div>
+    <div class="col-grid">
+      <div><label for="col_owner">주택 소유 구분</label><select id="col_owner"><option value="단독">신청인 단독소유</option><option value="공동">부부 공동소유</option></select></div>
+      <div><label for="col_appChild">신청인에게 자녀가 있습니까?</label><select id="col_appChild"><option value="">-- 선택 --</option><option value="Y">있음</option><option value="N">없음</option></select></div>
+      <div id="col_spChildWrap"><label for="col_spChild">배우자에게 자녀가 있습니까?</label><select id="col_spChild"><option value="">-- 선택 --</option><option value="Y">있음</option><option value="N">없음</option></select></div>
+      <div id="col_relWrap"><label for="col_rel">두 분의 자녀 관계</label><select id="col_rel"><option value="">-- 선택 --</option><option value="1">모두 두 분의 공동자녀</option><option value="2">신청인에게만 공동자녀가 아닌 자녀가 있음</option><option value="3">배우자에게만 공동자녀가 아닌 자녀가 있음</option><option value="4">두 분 모두 공동자녀가 아닌 자녀가 있음</option></select></div>
+      <div><label for="col_leases">보증금 있는 임대차 건수</label><input type="number" id="col_leases" min="0" step="1" value="0"></div>
+      <div><label for="col_trustNA">신탁을 쓸 수 없는 주택입니까?</label><select id="col_trustNA"><option value="N">아니오</option><option value="Y">예 (복합용도주택, 농지법 등 신탁 제한, 등기와 실질 불일치)</option></select></div>
+      <div><label for="col_growth">주택가격상승률 (연 %, 설정세금 참고용)</label><input type="number" id="col_growth" step="0.1" placeholder="예: 2.5"></div>
+    </div>
+    <div id="colSurvey"></div>
+    <div class="col-result" id="colResult"></div>
+    <div class="col-pick">
+      <b>최종 선택</b>
+      <button type="button" class="c-btn pick" data-col-pick="근저당권">저당권방식</button>
+      <button type="button" class="c-btn pick" data-col-pick="신탁(포괄)">신탁방식 (귀속권리자 포괄지정)</button>
+      <button type="button" class="c-btn pick" data-col-pick="신탁(개별)">신탁방식 (귀속권리자 개별지정)</button>
+      <button type="button" class="c-btn sub" id="colReload">앞 단계 값 다시 불러오기</button>
+    </div>
+    <div id="colPickMsg" style="margin-top:8px;"></div>
+  </div>
+
+</div><!-- /.consult-wrap -->
+
+
+<!-- ==================== STAGE 2: 주택연금 신청서 & 필요서류 (A4 인쇄 영역, 폭 210mm) ==================== -->
+<div id="app-anchor" class="app-header-bar no-print">
+  <h2>📄 Step 6. 주택연금 신청서 및 맞춤형 필요서류</h2>
+  <div class="c-row">
+    <span id="lumpGuideBadge" style="font-size:12.5px;background:#fff3cd;border:1px solid #ffecb5;padding:4px 9px;border-radius:6px;color:#664d03;display:none;"></span>
+    <button class="c-btn sub" onclick="window.print()">🖨️ A4 인쇄 / PDF 저장</button>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <div class="page">
+
+    <!-- 제목 -->
+    <div class="doc-title">주택연금신청서</div>
+    <div class="doc-to">한국주택금융공사 귀중</div>
+
+    <!-- 1. 보증신청인 -->
+    <div class="section">
+      <div class="section-title">1. 보증신청인&nbsp;<span style="font-weight:400;font-size:6pt;">(주택소유자중 나이가 적은 사람)</span></div>
+      <table>
+        <colgroup>
+          <col style="width:14mm"><col style="width:16mm"><col><col style="width:20mm"><col><col style="width:14mm"><col>
+        </colgroup>
+        <tr>
+          <td class="label" rowspan="2">신청인</td>
+          <td class="label">성 명</td>
+          <td><input type="text" id="app_name" placeholder="성명 입력" class="align-center"></td>
+          <td class="label">주민등록번호</td>
+          <td><input type="text" id="app_ssn" placeholder="앞6자리-뒤7자리" class="align-left"></td>
+          <td class="label">연락처</td>
+          <td><input type="text" id="app_tel" placeholder="010-0000-0000" class="align-center"></td>
+        </tr>
+        <tr>
+          <td class="label">주 소</td>
+          <td colspan="5">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="text" id="app_addr" placeholder="주소 입력" style="flex:1;" class="align-left">
+              <label class="no-print" style="display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:8pt;">
+                <input type="checkbox" id="app_addr_same" checked onchange="syncAddr('app')"> 담보주택과 같음
+              </label>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="label" rowspan="2">배우자</td>
+          <td class="label">성 명</td>
+          <td><input type="text" id="sp_name" placeholder="성명 입력" class="align-center"></td>
+          <td class="label">주민등록번호</td>
+          <td><input type="text" id="sp_ssn" placeholder="앞6자리-뒤7자리" class="align-left"></td>
+          <td class="label">연락처</td>
+          <td><input type="text" id="sp_tel" placeholder="010-0000-0000" class="align-center"></td>
+        </tr>
+        <tr>
+          <td class="label">주 소</td>
+          <td colspan="5">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="text" id="sp_addr" placeholder="주소 입력" style="flex:1;" class="align-left">
+              <label class="no-print" style="display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:8pt;">
+                <input type="checkbox" id="sp_addr_same" checked onchange="syncAddr('sp')"> 담보주택과 같음
+              </label>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 2. 보증대상주택 -->
+    <div class="section">
+      <div class="section-title">2. 보증대상주택</div>
+      <table>
+        <colgroup><col style="width:16mm"><col></colgroup>
+        <tr>
+          <td class="label">주택주소</td>
+          <td><input type="text" id="house_addr" placeholder="담보주택 주소 입력" class="align-left"></td>
+        </tr>
+      </table>
+      <table style="border-top:none;">
+        <colgroup>
+          <col style="width:16mm"><col style="width:36mm"><col style="width:16mm"><col style="width:22mm"><col style="width:26mm"><col>
+        </colgroup>
+        <tr>
+          <td class="label" style="border-top:none;">주택유형</td>
+          <td style="border-top:none;">
+            <select id="house_type" style="width:100%;">
+              <option value="">-- 선택 --</option>
+              <option value="아파트">아파트</option>
+              <option value="단독주택">단독주택</option>
+              <option value="연립/다세대">연립/다세대</option>
+              <option value="주거용오피스텔">주거용오피스텔</option>
+              <option value="노인복지주택">노인복지주택</option>
+            </select>
+          </td>
+          <td class="label" style="border-top:none;">소유구분</td>
+          <td style="border-top:none;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap;">
+              <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;cursor:pointer;white-space:nowrap;"><input type="radio" name="ownership" value="단독" checked> 단독</label>
+              <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;cursor:pointer;white-space:nowrap;"><input type="radio" name="ownership" value="공동"> 공동</label>
+            </div>
+          </td>
+          <td class="label" style="border-top:none;">면적(대지/건물)</td>
+          <td style="border-top:none;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="text" id="area_land" placeholder="대지(㎡)" style="flex:1;border-bottom:1px solid #aaa;min-width:0;" class="align-center">
+              <span style="white-space:nowrap;">/</span>
+              <input type="text" id="area_bldg" placeholder="건물(㎡)" style="flex:1;border-bottom:1px solid #aaa;min-width:0;" class="align-center">
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 3. 보증신청내용 -->
+    <div class="section">
+      <div class="section-title">3. 보증신청내용 &nbsp;<span style="font-weight:400;font-size:6pt;">* 주채무과목 이외에는 추후 보증서발급으로 확정 예정</span></div>
+      <table style="table-layout:fixed;">
+        <colgroup>
+          <col style="width:10.86%"><col style="width:39.14%"><col style="width:25%"><col style="width:25%">
+        </colgroup>
+        <tr>
+          <td class="label">주채무과목</td>
+          <td style="text-align:center;">주택담보노후연금대출</td>
+          <td class="label">대출금리</td>
+          <td style="text-align:center;">COFIX(신규취급액) + 0.85%</td>
+        </tr>
+        <tr>
+          <td class="label">주채무금액</td>
+          <td><input type="text" id="loan_amt" placeholder="금액 입력 (원)" class="align-center"></td>
+          <td class="label">보증금액</td>
+          <td style="text-align:center;">주채무와 같음</td>
+        </tr>
+        <tr>
+          <td class="label">주채무기한</td>
+          <td><input type="text" id="loan_term" placeholder="기한 입력" class="align-center"></td>
+          <td class="label">보증기한</td>
+          <td style="text-align:center;">주채무와 같음</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:0;vertical-align:top;">
+            <div class="pay-col">
+              <div class="col-header">지급방식 선택</div>
+              <div class="pay-item">
+                <label><input type="checkbox" name="pay_type" value="종신지급"> 종신지급</label>
+                <div class="pay-select-wrap">
+                  <select id="pay_jongsin">
+                    <option value="">-- 선택 --</option>
+                    <option value="정액형">정액형</option>
+                    <option value="초기증액형(3년)">초기증액형(3년)</option>
+                    <option value="초기증액형(5년)">초기증액형(5년)</option>
+                    <option value="초기증액형(7년)">초기증액형(7년)</option>
+                    <option value="초기증액형(10년)">초기증액형(10년)</option>
+                    <option value="정기증가형">정기증가형</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pay-item">
+                <label><input type="checkbox" name="pay_type" value="종신혼합"> 종신혼합</label>
+                <div class="pay-select-wrap">
+                  <select id="pay_honhab">
+                    <option value="">-- 선택 --</option>
+                    <option value="정액형">정액형</option>
+                    <option value="초기증액형(3년)">초기증액형(3년)</option>
+                    <option value="초기증액형(5년)">초기증액형(5년)</option>
+                    <option value="초기증액형(7년)">초기증액형(7년)</option>
+                    <option value="초기증액형(10년)">초기증액형(10년)</option>
+                    <option value="정기증가형">정기증가형</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pay-item">
+                <label><input type="checkbox" name="pay_type" value="확정혼합"> 확정혼합</label>
+                <div class="pay-select-wrap">
+                  <select id="pay_hwakjung">
+                    <option value="">-- 선택 --</option>
+                    <option value="정액형(10년)">정액형(10년)</option>
+                    <option value="정액형(15년)">정액형(15년)</option>
+                    <option value="정액형(20년)">정액형(20년)</option>
+                    <option value="정액형(25년)">정액형(25년)</option>
+                    <option value="정액형(30년)">정액형(30년)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pay-item"><label><input type="checkbox" name="pay_type" value="대출상환_정액형"> 대출상환</label><span style="font-size:8pt;color:#444;">(정액형)</span></div>
+              <div class="pay-item"><label><input type="checkbox" name="pay_type" value="대출상환우대_정액형"> 대출상환우대</label><span style="font-size:8pt;color:#444;">(정액형)</span></div>
+              <div class="pay-item"><label><input type="checkbox" name="pay_type" value="우대지급_정액형"> 우대지급</label><span style="font-size:8pt;color:#444;">(정액형)</span></div>
+              <div class="pay-item"><label><input type="checkbox" name="pay_type" value="우대혼합_정액형"> 우대혼합</label><span style="font-size:8pt;color:#444;">(정액형)</span></div>
+            </div>
+          </td>
+          <td colspan="2" style="padding:0;vertical-align:top;">
+            <div class="inchul-col">
+              <div class="col-header">인출한도 금액 <span id="ic_sum_label" class="no-print" style="font-weight:400;font-size:7.5pt;color:#0b5cad;"></span></div>
+              <div class="inchul-item"><span class="i-label">소상공인대출상환</span><div class="i-input-wrap"><input type="text" id="ic1" placeholder="금액" class="align-right ic-sub"><span class="i-suffix">원</span></div></div>
+              <div class="inchul-item"><span class="i-label">재건축분담금납부</span><div class="i-input-wrap"><input type="text" id="ic2" placeholder="금액" class="align-right ic-sub"><span class="i-suffix">원</span></div></div>
+              <div class="inchul-item"><span class="i-label">선순위대출상환</span><div class="i-input-wrap"><input type="text" id="ic3" placeholder="금액" class="align-right ic-sub"><span class="i-suffix">원</span></div></div>
+              <div class="inchul-item"><span class="i-label">임차보증금반환</span><div class="i-input-wrap"><input type="text" id="ic4" placeholder="금액" class="align-right ic-sub"><span class="i-suffix">원</span></div></div>
+              <div class="inchul-item"><span class="i-label">확정기간형의무</span><div class="i-input-wrap"><input type="text" id="ic5" placeholder="금액" class="align-right ic-sub"><span class="i-suffix">원</span></div></div>
+              <div class="inchul-item"><span class="i-label">감정료/설정비용</span><div class="i-input-wrap"><input type="text" id="ic6" placeholder="금액" class="align-right ic-sub"><span class="i-suffix">원</span></div></div>
+              <div class="inchul-item"><span class="i-label-other">기타 (<input type="text" id="ic_other_name" placeholder="내용" class="align-center">)</span><div class="i-input-wrap"><input type="text" id="ic7" placeholder="잔액 자동기입" class="align-right"><span class="i-suffix">원</span></div></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="label" style="font-size:7.6pt;padding:2px 1px;letter-spacing:-0.3px;">저당권/전세권</td>
+          <td style="padding:0;">
+            <div style="display:flex;align-items:stretch;height:100%;">
+              <input type="text" id="mortgage" placeholder="내용 입력" class="align-center" style="flex:1;padding:2px 4px;min-width:0;">
+              <div style="display:flex;align-items:center;border-left:1px solid #555;background:#e8edf5;padding:2px 4px;white-space:nowrap;font-size:7.6pt;font-weight:700;letter-spacing:-0.3px;">임차보증금</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:1px 4px;">
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;white-space:nowrap;cursor:pointer;"><input type="radio" name="lease" value="유"> 유</label>
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;white-space:nowrap;cursor:pointer;"><input type="radio" name="lease" value="무" checked> 무</label>
+              </div>
+            </div>
+          </td>
+          <td style="padding:0;">
+            <div style="display:flex;align-items:stretch;height:100%;">
+              <div style="display:flex;align-items:center;background:#e8edf5;padding:2px 4px;white-space:nowrap;font-size:7.6pt;font-weight:700;letter-spacing:-0.3px;">연금전용계좌</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:1px 4px;border-left:1px solid #555;">
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;white-space:nowrap;cursor:pointer;"><input type="radio" name="pension_acct" value="여"> 여</label>
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;white-space:nowrap;cursor:pointer;"><input type="radio" name="pension_acct" value="부"> 부</label>
+              </div>
+            </div>
+          </td>
+          <td style="padding:0;">
+            <div style="display:flex;align-items:stretch;height:100%;">
+              <div style="display:flex;align-items:center;background:#e8edf5;padding:2px 4px;white-space:nowrap;font-size:7.6pt;font-weight:700;letter-spacing:-0.3px;">담보제공방식</div>
+              <select id="collateral_type" style="flex:1;font-size:8pt;border:none;border-left:1px solid #555;background:transparent;padding:1px 2px;">
+                <option value="">-- 선택 --</option>
+                <option value="근저당권">근저당권</option>
+                <option value="신탁(포괄)">신탁(포괄)</option>
+                <option value="신탁(개별)">신탁(개별)</option>
+              </select>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 4. 금융거래상황 -->
+    <div class="section">
+      <div class="section-title">4. 금융거래상황</div>
+      <table>
+        <colgroup>
+          <col style="width:14mm"><col style="width:38mm"><col style="width:35mm"><col><col>
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="finance-th">구 분</th>
+            <th class="finance-th">대출잔액 합계</th>
+            <th class="finance-th">담보구분</th>
+            <th class="finance-th">현재 연체유무</th>
+            <th class="finance-th">현재 신용관리정보</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label" style="text-align:center;">신청인</td>
+            <td><input type="text" id="fin_balance" placeholder="잔액 (원)" class="align-center"></td>
+            <td><input type="text" id="fin_collateral" placeholder="담보구분 입력" class="align-center"></td>
+            <td>
+              <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;cursor:pointer;"><input type="radio" name="fin_overdue" value="유"> 유</label>
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;cursor:pointer;"><input type="radio" name="fin_overdue" value="무" checked> 무</label>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;cursor:pointer;"><input type="radio" name="fin_credit" value="유"> 유</label>
+                <label style="display:flex;align-items:center;gap:2px;font-size:8.5pt;cursor:pointer;"><input type="radio" name="fin_credit" value="무" checked> 무</label>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 서명 + QR -->
+    <div style="display:flex;align-items:flex-start;gap:0;margin-top:4mm;">
+      <div style="flex-shrink:0;width:18mm;align-self:center;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://windstorm2.github.io/home_pension/" alt="맞춤형 주택연금 서류" style="width:16mm;height:16mm;display:block;object-fit:contain;">
+      </div>
+      <div class="sign-block" style="flex:1;margin-top:0;">
+        <div class="sign-date-row">
+          <input type="text" id="sign_year" placeholder="yyyy" class="align-right" style="width:36px;">
+          <span style="font-size:8.5pt;">년&nbsp;</span>
+          <input type="text" id="sign_month" placeholder="m" class="align-right" style="width:18px;">
+          <span style="font-size:8.5pt;">월&nbsp;</span>
+          <input type="text" id="sign_day" placeholder="d" class="align-right" style="width:18px;">
+          <span style="font-size:8.5pt;">일&nbsp;</span>
+        </div>
+        <div class="sign-rows">
+          <div class="sign-row">
+            <span class="sign-label">보증신청인 겸 소유자 :</span>
+            <div style="flex:1;border-bottom:1px solid #555;display:flex;align-items:center;justify-content:center;min-height:18px;">
+              <span class="no-print" style="font-size:7.5pt;color:#555;white-space:nowrap;">출력 후 신청인이 손글씨로 작성</span>
+            </div>
+            <span style="padding:2px 8px;color:#888;margin-left:4px;flex-shrink:0;">(인)</span>
+          </div>
+          <div class="sign-row">
+            <span class="sign-label">금융기관 :</span>
+            <input type="text" id="sign_bank" placeholder="기관명" class="align-center" style="flex:1;border-bottom:1px solid #555;padding:1px 4px;">
+            <input type="text" id="sign_branch" placeholder="지점명" class="align-center" style="width:25mm;border-bottom:1px solid #555;padding:1px 4px;margin-left:4px;">
+            <span style="white-space:nowrap;margin-left:2px;">지점장</span>
+            <span style="padding:2px 8px;color:#888;margin-left:4px;flex-shrink:0;">(인)</span>
+          </div>
+          <div class="sign-row">
+            <span class="sign-label">금융기관 담당자 :</span>
+            <input type="text" id="sign_manager" placeholder="담당자 직위/성명/연락처" class="align-center" style="flex:1;border-bottom:1px solid #555;padding:1px 4px;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 첨부 서류 목록 -->
+    <div class="section" id="doc-list-section" style="margin-top:2mm;">
+      <div class="section-title">※ 첨부 서류 목록 &nbsp;<span style="font-weight:400;font-size:6pt;">* 위 상담·신청정보에 따른 맞춤형 필요서류입니다.</span></div>
+      <table id="doc-list-table">
+        <colgroup>
+          <col style="width:20mm"><col><col id="col-spouse" style="width:80mm">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="finance-th">구분</th>
+            <th class="finance-th">신청인</th>
+            <th class="finance-th" id="th-doc-spouse">배우자</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label" style="text-align:center;font-size:8pt;">주민센터<br>발급</td>
+            <td style="vertical-align:top;padding:3px 5px;">
+              <ul id="doc-app-center" style="padding-left:12px;margin:0;font-size:7.5pt;line-height:1.45;"></ul>
+            </td>
+            <td id="td-doc-spouse-center" style="vertical-align:top;padding:3px 5px;">
+              <ul id="doc-sp-center" style="padding-left:12px;margin:0;font-size:7.5pt;line-height:1.45;"></ul>
+            </td>
+          </tr>
+          <tr>
+            <td class="label" style="text-align:center;font-size:8pt;">기타</td>
+            <td style="vertical-align:top;padding:3px 5px;">
+              <ul id="doc-app-etc" style="padding-left:12px;margin:0;font-size:7.5pt;line-height:1.45;"></ul>
+            </td>
+            <td id="td-doc-spouse-etc" style="vertical-align:top;padding:3px 5px;">
+              <ul id="doc-sp-etc" style="padding-left:12px;margin:0;font-size:7.5pt;line-height:1.45;"></ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 신청서 하단 메모 입력 박스 -->
+    <div class="section" style="margin-top:1.5mm;margin-bottom:0;">
+      <div class="section-title">※ 상담 메모 / 안내사항</div>
+      <div class="memo-box">
+        <textarea id="app_memo" placeholder="상담 특이사항, 추가 안내사항, 지참 서류 메모 등을 입력하세요 (인쇄 시 함께 출력됩니다)."></textarea>
+      </div>
+    </div>
+
+  </div><!-- /.page -->
+</div><!-- /.page-wrap -->
+
+<div id="toast"></div>
+
+<script src="js/common.js"></script>
+<script src="js/api.js"></script>
+<script src="js/customer.js"></script>
+<script src="js/building.js"></script>
+<script src="js/price.js"></script>
+<script src="js/pension.js"></script>
+<script src="js/application.js"></script>
+<script src="js/collateral.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

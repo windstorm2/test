@@ -1,8 +1,10 @@
 /**
- * 주택연금 상담 보조도구 v6.8 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.9 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
+ *  - SESSION_SECRET / LOGIN_ID / LOGIN_PW : (선택) 공용 로그인. 세 개가 모두 있으면 모든 /api/*가 1시간 출입증을 요구한다.
+ *                    계정을 늘릴 때는 LOGIN_USERS="아이디:비밀번호,아이디:비밀번호"
  *  - VWORLD_KEY     : 브이월드(V-World) 오픈API 인증키(중계 서버를 쓰면 Worker에는 없어도 됨)
  *  - VWORLD_RELAY_URL / VWORLD_RELAY_SECRET : (선택) Cloudflare 밖 중계 서버(vercel-relay/) 주소·비밀값. 있으면 브이월드를 그쪽으로 호출
  *  - BRANCH_TOKEN   : 지점 접속 토큰 (선택)
@@ -48,7 +50,7 @@ function corsHeaders(req) {
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Branch-Token',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Branch-Token, Authorization',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -58,6 +60,63 @@ const json = (o, req, status = 200) =>
     status,
     headers: { 'content-type': 'application/json;charset=utf-8', ...corsHeaders(req) },
   });
+
+/* ───── 로그인(공용 계정) · 1시간 출입증 ─────
+ * 변수(Secret): SESSION_SECRET(서명 키, 길고 임의의 문자열), LOGIN_ID + LOGIN_PW(공용 계정 1개)
+ * 선택: LOGIN_USERS = "아이디1:비밀번호1,아이디2:비밀번호2" (계정을 늘릴 때. 비밀번호에 쉼표는 쓸 수 없음)
+ * 세 가지 조건(SESSION_SECRET + 계정)이 모두 있을 때만 로그인이 강제된다. 없으면 기존처럼 BRANCH_TOKEN 또는 개방. */
+const SESSION_MS = 60 * 60 * 1000;
+const enc = new TextEncoder();
+const b64u = s => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = s => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+
+function loginUsers(env) {
+  const list = [];
+  if (env.LOGIN_ID && env.LOGIN_PW) list.push([String(env.LOGIN_ID), String(env.LOGIN_PW)]);
+  String(env.LOGIN_USERS || '').split(',').forEach(x => {
+    const i = x.indexOf(':');
+    if (i > 0) list.push([x.slice(0, i).trim(), x.slice(i + 1)]);
+  });
+  return list;
+}
+const needLogin = env => !!(env.SESSION_SECRET && loginUsers(env).length);
+const loginMisconfigured = env => !env.SESSION_SECRET && loginUsers(env).length > 0;
+
+async function hmacHex(keyStr, data) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(keyStr), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function safeEq(a, b) { // 길이가 같은 문자열을 끝까지 비교해 시간차로 알아내지 못하게 한다
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+async function checkLogin(env, id, pw) {
+  const hid = await hmacHex(env.SESSION_SECRET, 'id:' + String(id || ''));
+  const hpw = await hmacHex(env.SESSION_SECRET, 'pw:' + String(pw || ''));
+  let ok = false;
+  for (const [u, p] of loginUsers(env)) {
+    const a = safeEq(hid, await hmacHex(env.SESSION_SECRET, 'id:' + u));
+    const b = safeEq(hpw, await hmacHex(env.SESSION_SECRET, 'pw:' + p));
+    if (a && b) ok = true; // 일치해도 반복을 끝까지 돈다
+  }
+  return ok;
+}
+async function signSession(env, user) {
+  const exp = Date.now() + SESSION_MS;
+  const payload = b64u(JSON.stringify({ u: encodeURIComponent(user), exp }));
+  return { token: payload + '.' + await hmacHex(env.SESSION_SECRET, payload), exp };
+}
+async function sessionOk(env, req) {
+  const m = /^Bearer (.+)$/.exec(req.headers.get('Authorization') || '');
+  if (!m) return false;
+  const [payload, sig] = m[1].split('.');
+  if (!payload || !sig) return false;
+  if (!safeEq(sig, await hmacHex(env.SESSION_SECRET, payload))) return false;
+  try { return JSON.parse(unb64u(payload)).exp > Date.now(); } catch { return false; }
+}
 
 export default {
   async fetch(req, env) {
@@ -69,18 +128,34 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.8',
+          version: 'v6.9',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
           vworldRelay: !!env.VWORLD_RELAY_URL,
+          needLogin: needLogin(env),
+          loginOk: needLogin(env) ? await sessionOk(env, req) : true,
+          loginMisconfigured: loginMisconfigured(env),
           needToken: !!env.BRANCH_TOKEN,
           tokenOk: !env.BRANCH_TOKEN || req.headers.get('X-Branch-Token') === env.BRANCH_TOKEN,
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.8' }, req);
-      if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.9' }, req);
+      if (url.pathname === '/api/login') {
+        if (req.method !== 'POST') return json({ error: 'POST only' }, req, 405);
+        if (!needLogin(env)) return json({ error: '로그인이 설정되어 있지 않습니다.' }, req, 404);
+        const b = await req.json().catch(() => ({}));
+        if (!(await checkLogin(env, b.id, b.pw))) {
+          await sleep(1000); // 무차별 대입을 늦춘다
+          return json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, req, 401);
+        }
+        const s = await signSession(env, String(b.id));
+        return json({ ok: true, token: s.token, exp: s.exp }, req);
+      }
+      if (needLogin(env)) {
+        if (!(await sessionOk(env, req))) return json({ error: 'login_required' }, req, 401);
+      } else if (env.BRANCH_TOKEN && req.headers.get('X-Branch-Token') !== env.BRANCH_TOKEN) {
         return json({ error: 'unauthorized' }, req, 401);
       }
 

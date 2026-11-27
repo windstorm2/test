@@ -88,7 +88,7 @@
 | `/api/sise` | 부동산원·KB 시세 | HF 시세조회 웹페이지 |
 | `/api/pension` | 예상 월지급금 | 공공데이터포털 HF 월지급금 API |
 
-Worker Secret: `DATA_GO_KR_KEY`, `JUSO_CONFM_KEY`, `VWORLD_KEY`, `BRANCH_TOKEN`(선택)
+Worker Secret: `DATA_GO_KR_KEY`, `JUSO_CONFM_KEY`, `VWORLD_KEY`, `BRANCH_TOKEN`(선택), 로그인용 `SESSION_SECRET`·`LOGIN_ID`·`LOGIN_PW`(선택, `LOGIN_USERS`로 계정 추가)
 
 ### 3.1 대지권 비율 수집 `[합의]` `[코드]`
 
@@ -490,6 +490,8 @@ Worker Secret: `DATA_GO_KR_KEY`, `JUSO_CONFM_KEY`, `VWORLD_KEY`, `BRANCH_TOKEN`(
 `[코드]` 메인 도구가 브라우저에 남기는 값은 지점 접속 토큰(`branchToken`)과 공시가격 보정비율(`ratio`) 두 가지입니다. 신청서에는 주민등록번호와 연락처 입력란이 있으나 저장하는 코드는 없습니다.
 
 ## 11. 운영 제약 `[코드]`
+
+- `[합의]` (2026-11-27) 로그인: 첫 화면에 아이디·비밀번호만 둡니다. 확인은 화면이 아니라 Worker(`/api/login`)가 하고(비밀번호는 시간차 없이 비교, 실패 시 1초 지연), 맞으면 **로그인 후 1시간** 유효한 서명된 출입증을 돌려줍니다. 출입증은 그 탭의 `sessionStorage`에만 두고 1시간이 지나면 자동으로 로그인 창으로 돌아갑니다(연장 없음). 공용 계정 1개로 시작하고 `LOGIN_USERS`로 늘립니다. 로그인이 설정되면 기존 `BRANCH_TOKEN`은 쓰지 않습니다. 화면 파일(HTML 등)은 GitHub Pages에서 공개되므로 레이아웃은 보호되지 않고 **데이터와 계산은 서버에서 보호**됩니다. 이자율·상승률을 숨기는 99 입력 방식은 이 다음 작업입니다.
 
 1. Worker는 요청 1건당 외부 호출을 46회로 제한합니다(무료 한도 50회 대응).
 2. 건축물대장 7일 캐시는 Worker 주소가 `workers.dev`로 끝나면 꺼집니다. 현재 주소가 `homepension.windstorm2.workers.dev`라 캐시가 작동하지 않습니다(배포본 `/api/health`의 `cache:false`로 확인). 사용자는 도메인을 보유하지 않으며, 조회한 주소가 7일간 남는 KV 캐시는 허용하기로 했습니다. 다만 KV 읽기·쓰기도 요청당 외부 호출 50회에 포함되므로 아래 5번의 요청당 한도 문제는 KV로 해결되지 않습니다.

@@ -412,3 +412,15 @@
 .col-table th, .col-table td { border:1px solid #c9d3de; padding:5px 7px; text-align:left; vertical-align:top; }
 .col-table th { background:#eef3f8; }
 .col-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+
+/* 로그인 */
+body.locked > *:not(#loginGate) { display:none !important; }
+.login-gate { display:none; position:fixed; inset:0; align-items:center; justify-content:center; background:#eef3f8; z-index:9999; }
+body.locked .login-gate { display:flex; }
+.login-box { background:#fff; border:1px solid #c9d3de; border-radius:10px; padding:26px 28px; width:min(340px,90vw); box-shadow:0 4px 18px rgba(0,0,0,.08); }
+.login-box h1 { font-size:17px; margin:0 0 16px; color:#0c3c78; }
+.login-box label { display:block; font-size:13px; margin:10px 0 4px; color:#444; }
+.login-box input { width:100%; box-sizing:border-box; padding:9px 10px; font-size:15px; border:1px solid #b8c4d2; border-radius:6px; }
+.login-box button { width:100%; margin-top:16px; padding:10px; font-size:15px; }
+.login-msg { min-height:18px; margin-top:10px; font-size:13px; color:#c62828; }
+.sess-bar { text-align:right; margin:4px 0; color:#555; }
