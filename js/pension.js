@@ -6,7 +6,7 @@
  */
 
 /* ───── 보증금액 계산 ─────
- * 개월 수 = 12 × (101 − 연소자 만나이). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
+ * 개월 수 = 12 × (101 − min(연소자 만나이, 90). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
  * 1회차: 초기보증료 = 내림(주택가격 × 1%), 이후 회차는 없음.
  * 매 회차: 기준 = 직전 보증잔액 + (1회차만 초기보증료) + 월지급금
  *          보증료 = 내림(기준 × 0.95% / 12), 이자 = 내림((기준 + 보증료) × 이자율 / 12)
@@ -14,7 +14,8 @@
  * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
 function calcGuarantee(monthly, housePrc, ratePct, age) {
   if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0)) return null;
-  var months = 12 * (101 - age);
+  var effAge = Math.min(age, 90); // 연소자 나이 상한 90세 적용 (최소 132회차)
+  var months = 12 * (101 - effAge);
   if (!(months > 0)) return null;
   var rate = ratePct / 100, init = Math.floor(housePrc * 0.01), bal = 0;
   for (var i = 1; i <= months; i++) {
