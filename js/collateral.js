@@ -264,11 +264,11 @@ function colRefresh() {
     var q2 = $('col_qrow1'); if (q2) q2.style.display = inp.hasSpouse ? '' : 'none';
     var r = colEval(inp); S.col.last = r;
     if (S.pensionRes && typeof updateGuarantee === 'function') updateGuarantee(S.pensionRes);
-    $('colBase').innerHTML = '앞 단계에서 가져온 값 : 나이(부부 중 연소자 기준) ' + (inp.age == null ? '미입력' : '만 ' + inp.age + '세') +
+    $('colBase').innerHTML = '연소자 ' + (inp.age == null ? '미입력' : inp.age + '세') +
       ' · 배우자 ' + (inp.hasSpouse ? '있음' : '없음') +
-      ' · 평가주택가격 ' + (inp.housePrice ? inp.housePrice.toLocaleString('ko-KR') + '원' : '미입력') +
-      ' · 주택유형 ' + (inp.houseType || '미선택') +
-      ' · 사용승인 ' + (inp.useYear ? inp.useYear + '년(경과 ' + inp.elapsed + '년)' : '미조회');
+      ' · 주택가격 ' + (inp.housePrice ? inp.housePrice.toLocaleString('ko-KR') + '원' : '미입력') +
+      ' · ' + (inp.houseType || '유형 미선택') +
+      ' · 사용승인 ' + (inp.useYear ? inp.useYear + '년(' + inp.elapsed + '년 경과)' : '미조회');
     $('colResult').innerHTML = colRender(r);
     var pick = $('collateral_type') ? $('collateral_type').value : '';
     var pk = pick === '근저당권' ? 'mortgage' : (pick.indexOf('신탁') === 0 ? 'trust' : '');

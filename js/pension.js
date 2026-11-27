@@ -56,33 +56,49 @@ function guaranteeRateSaved() {
   try { return localStorage.getItem('gRate') || ''; } catch (e) { return ''; }
 }
 
+/* 오류 문구를 요약 줄에 맞게 줄인다 */
+function shortErr(m) {
+  m = String(m || '');
+  if (m.indexOf('지점 기준값') >= 0) return '기준값 미설정';
+  if (m.indexOf('로그인') >= 0) return '로그인 필요';
+  return m.length > 24 ? m.slice(0, 24) + '…' : m;
+}
+
 function updateGuarantee(r) {
-  var el = $('gAmt'), inp = $('gRate'), st = $('gSet');
+  var el = $('gAmt'), inp = $('gRate'), st = $('gSet'), p120 = $('g120');
   if (!el || !inp) return;
-  if (st) st.textContent = '';
   var row = r.rows && r.rows[0];
   var monthly = row && !row.error ? row.first : null;
-  var age = (typeof colInputs === 'function') ? colInputs().age : null;
-  if (r.status === 'loan_pref' || monthly == null) { el.textContent = '- (월지급금 산출 불가)'; return; }
-  if (inp.value === '') { el.textContent = '- (이자율을 입력하면 계산됩니다)'; return; }
+  var ci = (typeof colInputs === 'function') ? colInputs() : {};
+  var age = ci.age == null ? null : ci.age;
+
+  // 설정금액(100세말 예상주택가격): 이자율과 무관하게 상승률만 있으면 표시
+  if (st) {
+    var fi = colFutureInfo(ci.housePrice, age, ci.growth);
+    st.textContent = fi.val != null ? won(fi.val) + '원' : (fi.note || '- (상승률 미입력)');
+    st.className = fi.val != null ? '' : 'note';
+  }
+
+  p120.textContent = ''; el.title = ''; el.className = 'note';
+  if (r.status === 'loan_pref' || monthly == null) { el.textContent = '- (월지급금 없음)'; return; }
+  if (inp.value === '') { el.textContent = '- (이자율 입력)'; return; }
   var g;
   if (Number(inp.value) === SECRET_CODE) { // 지점 기준값: Worker가 계산한 결과만 받는다
     if (age == null) { el.textContent = '-'; return; }
     var sg = secretGet('g', { monthly: monthly, housePrc: r.housePrc, age: age });
     if (sg.state === 'wait') { el.textContent = '계산 중...'; return; }
-    if (sg.state === 'err') { el.textContent = '- (' + sg.msg + ')'; return; }
+    if (sg.state === 'err') { el.textContent = '- (' + shortErr(sg.msg) + ')'; return; }
     g = sg.val != null ? { amount: sg.val } : null;
   } else {
     g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age);
   }
   el.textContent = g ? won(g.amount) + '원' : '-';
-  if (st && g) {
-    // 보증금액의 120%(100만 원 미만 내림), 설정금액 = 100세말 예상주택가격(등록면허세 등 설정 비용 계산에 쓰는 값)
-    var ci = colInputs();
-    var fi = colFutureInfo(ci.housePrice, ci.age, ci.growth);
-    st.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원) · 설정금액 ' + (fi.val != null ? won(fi.val) + '원' : (fi.note || '- (Step 5 주택가격상승률을 입력하면 표시)'));
+  if (g) {
+    el.className = '';
+    // 보증금액의 120%는 100만 원 미만 내림
+    p120.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원)';
+    if (g.months) el.title = g.months + '회차 보증잔액 ' + won(g.balance) + '원';
   }
-  el.title = g && g.months ? g.months + '회차 보증잔액 ' + won(g.balance) + '원' : '';
 }
 
 function renderPension(r) {
@@ -90,11 +106,19 @@ function renderPension(r) {
   var age = (typeof colInputs === 'function') ? colInputs().age : null;
   var methodTxt = r.status === 'loan_pref' ? '대출상환우대 (API 미지원 · 별도상담)' : r.methodName;
   var baseTxt = baseLabel().replace(/\s*시세$/, ''); // "부동산원 시세" → "부동산원"
-  var h = '<div>연소자 ' + (age == null ? '-' : age) + '세, 주택가격 ' + won(r.housePrc) + '원(' + baseTxt + '), ' + methodTxt +
-          ', 설정인출한도 ' + won(r.lumpUsed) + ' (가능한도 ' + (r.imax != null ? won(r.imax) : '-') + ')' +
-          (r.lumpUsed !== r.lump ? ' · 한도 조정 전 ' + won(r.lump) + '원' : '') + '</div>';
-  h += '<div style="margin-top:4px;">보증금액 <span id="gAmt"></span> <span id="gSet"></span> ' +
-       '<small>· 추정 이자율(연 %) <input type="number" id="gRate" step="0.01" min="0" style="width:70px;" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"></small></div>';
+  var item = function(k, v, cls) { return '<span class="sum-item' + (cls ? ' ' + cls : '') + '"><span class="k">' + k + '</span><span class="v">' + v + '</span></span>'; };
+  var h = '<div class="sum">';
+  h += '<div class="sum-line">' +
+       item('연소자', (age == null ? '-' : age) + '세') +
+       item('주택가격', won(r.housePrc) + '원 <span class="sub">(' + baseTxt + ')</span>') +
+       item('지급방식', methodTxt) +
+       item('설정인출한도', won(r.lumpUsed) + ' <span class="sub">(가능한도 ' + (r.imax != null ? won(r.imax) : '-') + (r.lumpUsed !== r.lump ? ' · 조정 전 ' + won(r.lump) : '') + ')</span>') +
+       '</div>';
+  h += '<div class="sum-line">' +
+       item('보증금액', '<span id="gAmt"></span> <span id="g120" class="sub"></span>', 'key') +
+       item('설정금액', '<span id="gSet"></span>', 'key') +
+       item('추정 이자율', '<input type="number" id="gRate" step="0.01" min="0" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"> %') +
+       '</div></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
   });
