@@ -43,10 +43,10 @@ function updateGuarantee(r) {
   var g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age);
   el.textContent = g ? won(g.amount) + '원' : '-';
   if (st && g) {
-    // 보증금액의 120%, 설정금액 = 100세말 예상주택가격(등록면허세 등 설정 비용 계산에 쓰는 값)
+    // 보증금액의 120%(100만 원 미만 내림), 설정금액 = 100세말 예상주택가격(등록면허세 등 설정 비용 계산에 쓰는 값)
     var ci = colInputs();
     var fv = colFutureValue(ci.housePrice, ci.age, ci.growth);
-    st.textContent = '(120% ' + won(Math.round(g.amount * 1.2)) + '원) · 설정금액 ' + (fv != null ? won(fv) + '원' : '- (Step 5 주택가격상승률을 입력하면 표시)');
+    st.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원) · 설정금액 ' + (fv != null ? won(fv) + '원' : '- (Step 5 주택가격상승률을 입력하면 표시)');
   }
   el.title = g ? g.months + '회차 보증잔액 ' + won(g.balance) + '원' : '';
 }
@@ -54,12 +54,13 @@ function updateGuarantee(r) {
 function renderPension(r) {
   $('resultSec').style.display = '';
   var age = (typeof colInputs === 'function') ? colInputs().age : null;
-  var methodTxt = r.status === 'loan_pref' ? '대출상환우대방식 (API 미지원 · 별도상담)' : r.methodName + '방식';
-  var h = '<div>연소자 ' + (age == null ? '-' : age) + '세, 주택가격 ' + won(r.housePrc) + '원(' + baseLabel() + '), ' + methodTxt +
-          ', 인출한도(' + (r.imax != null ? won(r.imax) : '-') + ') ' + won(r.lumpUsed) +
-          (r.lumpUsed !== r.lump ? ' (한도 조정 전 ' + won(r.lump) + '원)' : '') + '</div>';
+  var methodTxt = r.status === 'loan_pref' ? '대출상환우대 (API 미지원 · 별도상담)' : r.methodName;
+  var baseTxt = baseLabel().replace(/\s*시세$/, ''); // "부동산원 시세" → "부동산원"
+  var h = '<div>연소자 ' + (age == null ? '-' : age) + '세, 주택가격 ' + won(r.housePrc) + '원(' + baseTxt + '), ' + methodTxt +
+          ', 설정인출한도 ' + won(r.lumpUsed) + ' (가능한도 ' + (r.imax != null ? won(r.imax) : '-') + ')' +
+          (r.lumpUsed !== r.lump ? ' · 한도 조정 전 ' + won(r.lump) + '원' : '') + '</div>';
   h += '<div style="margin-top:4px;">보증금액 <span id="gAmt"></span> <span id="gSet"></span> ' +
-       '<small>· 이자율(연 %) <input type="number" id="gRate" step="0.01" min="0" style="width:70px;" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"></small></div>';
+       '<small>· 추정 이자율(연 %) <input type="number" id="gRate" step="0.01" min="0" style="width:70px;" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"></small></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
   });

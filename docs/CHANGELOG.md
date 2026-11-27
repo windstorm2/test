@@ -7,6 +7,9 @@
 - `windstorm2/home_pension`(운영용): `index_old.html`("주택연금 서류 가이드")를 `index.html`로, 기존 `index.html`(통합 상담·신청 보조도구 v6.0, 한 파일)을 `index_new.html`로 이름 변경(커밋 `9e2fe8c`). 사용자 요청. 내용 변경 없음. 다른 파일의 참조는 없음을 확인
 - 이 저장소(`test`)의 코드는 변경 없음
 
+## 2026-11-27 17:20 예상연금 요약 표기 조정
+- `js/pension.js`: 가격 출처에서 "시세"를 뺀 표기(부동산원), 지급방식에서 "방식"을 뺌, "설정인출한도 N (가능한도 M)" 형태로 변경, 120% 값도 100만 원 미만 내림, 이자율 라벨을 "추정 이자율(연 %)"로 바꿨습니다. 백업: `backup/202611271715/pension_before.js`.
+
 ## 2026-11-27 17:00 공용 로그인과 1시간 자동 해제 (Worker v6.9)
 - `worker/worker.js` v6.9: `/api/login`(공용 계정, 실패 시 1초 지연), HMAC 서명 출입증(유효 1시간), 로그인이 설정되면 모든 `/api/*`에 출입증을 요구(없거나 만료·변조는 401 `login_required`), health에 `needLogin`·`loginOk`·`loginMisconfigured`. 변수 `SESSION_SECRET`·`LOGIN_ID`·`LOGIN_PW`(+선택 `LOGIN_USERS`)가 없으면 기존 동작이므로 화면과 Worker를 먼저 올려도 안전합니다.
 - 화면(`index.html`, `css/main.css`, `js/api.js`, `js/main.js`): 로그인 창, 남은 시간 표시와 로그아웃, 만료·401 시 로그인 창으로 복귀.
