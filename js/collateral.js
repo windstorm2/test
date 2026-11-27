@@ -212,7 +212,7 @@ function colInputs() {
     leases: Number(val('col_leases')) || 0, trustNA: val('col_trustNA') === 'Y',
     houseType: val('house_type'), housePrice: Number(val('housePrc')) || 0,
     age: age, useYear: uy > 1900 ? uy : null, elapsed: uy > 1900 ? new Date().getFullYear() - uy : null,
-    growth: val('col_growth') === '' ? null : Number(val('col_growth')),
+    growth: (typeof secretOn !== 'undefined' && secretOn) ? SECRET_CODE : (val('col_growth') === '' ? null : Number(val('col_growth'))),
     answers: ans, weights: wts
   };
 }

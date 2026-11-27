@@ -12,6 +12,7 @@ $('tokenBtn').onclick = function() {
   checkToken();
 };
 
+$('col_growth').addEventListener('input', function() { rateFieldInput(this); });
 $('loginForm').onsubmit = function(e) { e.preventDefault(); doLogin(); };
 $('logoutBtn').onclick = function() { lockScreen('로그아웃되었습니다.'); };
 
