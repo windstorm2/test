@@ -46,8 +46,7 @@ function colEval(inp) {
 
   // 3) 저당권 설정세금 참고값 (기존 도구의 식, 검증 전)
   if (inp.age != null && inp.housePrice > 0 && inp.growth != null) {
-    var months = Math.max(0, (101 - inp.age) * 12);
-    var fv = Math.floor(inp.housePrice * Math.pow(1 + inp.growth / 100 / 12, months) / 1000000) * 1000000;
+    var fv = colFutureValue(inp.housePrice, inp.age, inp.growth);
     r.tax = { future: fv, tax: Math.round(fv * 0.0012) };
   }
 
@@ -178,6 +177,14 @@ function colAgeOf(b8) {
   return a >= 0 && a < 130 ? a : null;
 }
 
+/* 100세말 예상주택가격 = 주택가격 × (1 + 연상승률/12)^(12×(101−나이)), 100만 원 미만 내림.
+   등록면허세 등 설정 비용 계산과 예상연금 요약의 설정금액이 같은 값을 쓰도록 한 곳에서 계산한다. */
+function colFutureValue(housePrice, age, growthPct) {
+  if (age == null || !(housePrice > 0) || growthPct == null || isNaN(growthPct)) return null;
+  var months = Math.max(0, (101 - age) * 12);
+  return Math.floor(housePrice * Math.pow(1 + growthPct / 100 / 12, months) / 1000000) * 1000000;
+}
+
 function colInputs() {
   var val = function(id) { var e = $(id); return e ? String(e.value || '') : ''; };
   var hasSp = val('spouseBirth').replace(/\D/g, '').length > 0 || val('sp_name').trim().length > 0 || val('sp_ssn').replace(/\D/g, '').length > 0;
@@ -218,7 +225,7 @@ function colRender(r) {
   h.push('</div>');
   h.push('<h4>추천 사유</h4>' + li(r.reasons));
   if (r.checks.length) h.push('<h4>확인할 사항</h4>' + li(r.checks));
-  if (r.tax) h.push('<h4>저당권 설정세금 참고값</h4><ul><li>약 ' + r.tax.tax.toLocaleString('ko-KR') + '원 (101세 시점 예상 주택가격 ' + r.tax.future.toLocaleString('ko-KR') + '원 × 0.12%. 기존 도구의 계산식이며 검증 전입니다.)</li></ul>');
+  if (r.tax) h.push('<h4>저당권 설정세금 참고값</h4><ul><li>약 ' + r.tax.tax.toLocaleString('ko-KR') + '원 (100세말 예상 주택가격 ' + r.tax.future.toLocaleString('ko-KR') + '원 × 0.12%. 기존 도구의 계산식이며 검증 전입니다.)</li></ul>');
   h.push('<h4>저당권방식 알아둘 점</h4>' + li([
     '등기 명의는 그대로 유지됩니다.',
     '소유자가 사망하면 배우자가 6개월 안에 주택 소유권 전부를 넘겨받아야 연금이 이어지고, 공동상속인 전원의 동의가 필요합니다.',
@@ -250,6 +257,7 @@ function colRefresh() {
     $('col_relWrap').style.display = (inp.hasSpouse && inp.appChild === true && inp.spChild === true) ? '' : 'none';
     var q2 = $('col_qrow1'); if (q2) q2.style.display = inp.hasSpouse ? '' : 'none';
     var r = colEval(inp); S.col.last = r;
+    if (S.pensionRes && typeof updateGuarantee === 'function') updateGuarantee(S.pensionRes);
     $('colBase').innerHTML = '앞 단계에서 가져온 값 : 나이(부부 중 연소자 기준) ' + (inp.age == null ? '미입력' : '만 ' + inp.age + '세') +
       ' · 배우자 ' + (inp.hasSpouse ? '있음' : '없음') +
       ' · 평가주택가격 ' + (inp.housePrice ? inp.housePrice.toLocaleString('ko-KR') + '원' : '미입력') +
