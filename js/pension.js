@@ -10,7 +10,7 @@
  * 1회차: 초기보증료 = 내림(주택가격 × 1%), 이후 회차는 없음.
  * 매 회차: 기준 = 직전 보증잔액 + (1회차만 초기보증료) + 월지급금
  *          보증료 = 내림(기준 × 0.95% / 12), 이자 = 내림((기준 + 보증료) × 이자율 / 12)
- *          보증잔액 = 기준 + 보증료 + 이자
+ *          보증잔액 = round(기준 + 보증료 + 이자, 0)
  * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
 function calcGuarantee(monthly, housePrc, ratePct, age) {
   if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0)) return null;
@@ -22,7 +22,7 @@ function calcGuarantee(monthly, housePrc, ratePct, age) {
     var base = bal + (i === 1 ? init : 0) + monthly;
     var fee = Math.floor(base * 0.0095 / 12); // 연보증료율 0.95% (전 회차), 원 단위 내림
     var intr = Math.floor((base + fee) * rate / 12);
-    bal = base + fee + intr;
+    bal = Math.round(base + fee + intr); // 보증잔액 = round(합계, 0)
   }
   return { months: months, balance: bal, amount: Math.floor(bal / 1000000) * 1000000 };
 }
