@@ -425,13 +425,13 @@ body.locked .login-gate { display:flex; }
 .login-msg { min-height:18px; margin-top:10px; font-size:13px; color:#c62828; }
 .sess-bar { text-align:right; margin:4px 0; color:#555; }
 
-/* 예상연금 요약 (줄 단위로 나누고 항목명은 작게, 값은 크게) */
-.sum { display:grid; gap:8px; margin:2px 0 10px; }
-.sum-line { display:flex; flex-wrap:wrap; gap:4px 22px; align-items:baseline; font-size:14px; line-height:1.5; }
-.sum-item .k { color:#667085; font-size:12px; margin-right:6px; }
+/* 예상연금 요약: 글자 크기는 모두 14px로 통일하고 항목명은 옅은 색으로만 구분 */
+.sum { display:grid; gap:8px; margin:2px 0 10px; font-size:14px; }
+.sum-line { display:flex; flex-wrap:wrap; gap:4px 22px; align-items:baseline; line-height:1.5; }
+.sum-item .k { color:#667085; margin-right:6px; }
 .sum-item .v { color:#1d2733; }
-.sum-item.key .v { font-size:16px; color:var(--primary-dark); }
-.sum .sub { color:#667085; font-size:12.5px; }
-.sum input#gRate { width:64px; padding:3px 6px; font-size:14px; border:1px solid var(--border); border-radius:5px; }
+.sum-item.key .v { color:var(--primary-dark); }
+.sum .sub { color:#667085; }
+.sum input#gRate { width:64px; padding:3px 6px; font-size:inherit; font-family:inherit; border:1px solid var(--border); border-radius:5px; }
 .p-table td b { font-weight:600; }
-.sum-item.key .v #gSet.note, .sum-item.key .v #gAmt.note { font-size:13px; color:#667085; }
+.sum-item.key .v .note { color:#667085; }
