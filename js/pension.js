@@ -97,10 +97,10 @@ function renderPension(r) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
   });
   $('summary').innerHTML = h;
-  $('gRate').value = guaranteeRateSaved(); // 이자율·상승률 입력칸은 그래프 왼쪽 위에 겹쳐 표시한다(js/chart.js)
+  // 이자율·상승률 입력칸은 그래프 왼쪽 위에 겹쳐 표시한다(js/chart.js). 기본값은 index.html의 5%·2%이고 저장하지 않는다.
+  try { localStorage.removeItem('gRate'); } catch (e) {}
   $('gRate').oninput = function() {
     this.value = this.value.replace(/[^0-9.]/g, '');
-    try { localStorage.setItem('gRate', this.value); } catch (e) {}
     updateChart(r);
   };
   updateGuarantee(r);
