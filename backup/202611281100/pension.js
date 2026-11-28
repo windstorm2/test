@@ -1,0 +1,264 @@
+/*
+ * js/pension.js : 4. 예상연금 조회
+ * backup/202611222155/index.html(v6.0)의 스크립트를 기능 변경 없이 나눈 파일입니다.
+ * 함수 선언만 둡니다.
+ * 불러오는 순서: common → api → customer → building → price → pension → application → main
+ */
+
+/* ───── 숨긴 기준값(99) ─────
+ * 이자율·주택가격상승률에 99를 입력하면 화면에서 계산하지 않고 Worker(/api/calc)가 Cloudflare 변수 값으로 계산해 결과만 돌려준다.
+ * 같은 입력은 다시 호출하지 않도록 결과를 기억한다. 오류는 5초만 기억해 다시 시도할 수 있게 한다. */
+var SECRET_CODE = 99, secCache = {}, secPending = {};
+/* 이자율 또는 주택가격상승률에 99를 입력하면 두 항목 모두 Cloudflare 기준값을 쓰고, 화면에는 **로만 표시한다.
+   (비밀번호처럼 값 자체는 화면과 브라우저 저장소에 남기지 않는다.) 숨김 상태에서 어느 칸이든 고쳐 쓰면 숨김이 해제되고
+   고친 칸만 남고 다른 칸은 비워진다. */
+var secretOn = false;
+function rateFieldInput(el) {
+  var v = el.value.trim(), g = $('gRate'), c = $('col_growth');
+  var other = el === g ? c : g;
+  if (v === String(SECRET_CODE)) { secretOn = true; if (g) g.value = '**'; if (c) c.value = '**'; return; }
+  if (secretOn && v !== '**') { secretOn = false; el.value = v.replace(/[^0-9.]/g, ''); if (other) other.value = ''; }
+}
+
+function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주택가격
+  var key = kind === 'g' ? ['g', p.monthly, p.housePrc, p.age, p.lump || 0].join('|') : ['f', p.housePrc, p.age].join('|');
+  if (secCache[key]) return secCache[key];
+  if (!secPending[key]) {
+    secPending[key] = 1;
+    var body = kind === 'g' ? { housePrc: p.housePrc, age: p.age, monthly: p.monthly, lump: p.lump || 0, useRate: true } : { housePrc: p.housePrc, age: p.age, useGrowth: true };
+    api('/api/calc', { method: 'POST', body: JSON.stringify(body) }).then(function(j) {
+      secCache[key] = { state: 'ok', val: kind === 'g' ? (j.guarantee && j.guarantee.amount) : j.future };
+    }).catch(function(e) {
+      secCache[key] = { state: 'err', msg: e.message };
+      setTimeout(function() { delete secCache[key]; }, 5000);
+    }).then(function() {
+      delete secPending[key];
+      if (S.pensionRes) updateGuarantee(S.pensionRes);
+      if (typeof colRefresh === 'function') colRefresh();
+    });
+  }
+  return { state: 'wait' };
+}
+
+/* ───── 보증금액 계산 ─────
+ * 개월 수 = 12 × (101 − min(연소자 만나이, 90). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
+ * 1회차: 초기보증료 = 내림(주택가격 × 1%)과 일시인출금(설정인출한도)을 1회차 기준에 함께 더한다(2026-11-28). 이후 회차는 없음.
+ * 매 회차: 기준 = 직전 보증잔액 + (1회차만 초기보증료 + 일시인출금) + 월지급금
+ *          보증료 = 내림(기준 × 0.95% / 12), 이자 = 내림((기준 + 보증료) × 이자율 / 12)
+ *          보증잔액 = round(기준 + 보증료 + 이자, 0)
+ * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
+/* monthly: 숫자(모든 회차 같은 월지급금) 또는 { first, after, from } (from회차부터 after, 그 전은 first. 초기증액형 그래프용) */
+function guaranteeRun(monthly, housePrc, ratePct, age, lump, keep) {
+  var payAt = typeof monthly === 'object' ? function(i) { return i >= monthly.from ? monthly.after : monthly.first; } : function() { return monthly; };
+  var firstPay = typeof monthly === 'object' ? monthly.first : monthly;
+  if (!(firstPay > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0) || ratePct > 30) return null; // 이자율 30% 초과는 입력 오류로 본다
+  var effAge = Math.min(age, 90); // 연소자 나이 상한 90세 적용 (최소 132회차)
+  var months = 12 * (101 - effAge);
+  if (!(months > 0)) return null;
+  var lumpAmt = Math.max(0, Number(lump) || 0);
+  var rate = ratePct / 100, initFee = Math.floor(housePrc * 0.01), init = initFee + lumpAmt, bal = 0; // init = 초기보증료 + 일시인출금
+  // keep이면 그래프용으로 회차별 누적(일시인출금, 월지급금, 보증료, 이자)과 보증잔액을 함께 남긴다(0회차 = 가입 시점)
+  var ser = keep ? { lump: [lumpAmt], pay: [0], fee: [initFee], intr: [0], bal: [init] } : null;
+  var cumFee = initFee, cumIntr = 0, cumPay = 0;
+  for (var i = 1; i <= months; i++) {
+    var pay = payAt(i);
+    cumPay += pay;
+    var base = bal + (i === 1 ? init : 0) + pay;
+    var fee = Math.floor(base * 0.0095 / 12); // 연보증료율 0.95% (전 회차), 원 단위 내림
+    var intr = Math.floor((base + fee) * rate / 12);
+    bal = Math.round(base + fee + intr); // 보증잔액 = round(합계, 0)
+    if (keep) {
+      cumFee += fee; cumIntr += intr;
+      ser.lump.push(lumpAmt); ser.pay.push(cumPay); ser.fee.push(cumFee); ser.intr.push(cumIntr); ser.bal.push(bal);
+    }
+  }
+  return { months: months, balance: bal, amount: Math.floor(bal / 1000000) * 1000000, series: ser, effAge: effAge };
+}
+function calcGuarantee(monthly, housePrc, ratePct, age, lump) { return guaranteeRun(monthly, housePrc, ratePct, age, lump, false); }
+
+/* 저장된 이자율. 예전 버전이 99(숨김 코드)나 `**`를 저장해 둔 경우 읽지 않고 지운다. */
+function guaranteeRateSaved() {
+  try {
+    var v = localStorage.getItem('gRate') || '';
+    var n = Number(v);
+    if (v !== '' && !(n >= 0 && n < SECRET_CODE)) { localStorage.removeItem('gRate'); return ''; }
+    return v;
+  } catch (e) { return ''; }
+}
+
+/* 오류 문구를 요약 줄에 맞게 줄인다 */
+function shortErr(m) {
+  m = String(m || '');
+  if (m.indexOf('지점 기준값') >= 0) return '기준값 미설정';
+  if (m.indexOf('로그인') >= 0) return '로그인 필요';
+  return m.length > 24 ? m.slice(0, 24) + '…' : m;
+}
+
+function updateGuaranteeLine(r) {
+  var el = $('gAmt'), inp = $('gRate'), st = $('gSet'), p120 = $('g120');
+  if (!el || !inp) return;
+  var row = r.rows && r.rows[0];
+  var monthly = row && !row.error ? row.first : null;
+  var ci = (typeof colInputs === 'function') ? colInputs() : {};
+  var age = ci.age == null ? null : ci.age;
+
+  // 설정금액(100세말 예상주택가격): 이자율과 무관하게 상승률만 있으면 표시
+  if (st) {
+    var fi = colFutureInfo(ci.housePrice, age, ci.growth);
+    st.textContent = fi.val != null ? won(fi.val) + '원' : (fi.note || '상승률 미입력');
+    st.className = fi.val != null ? '' : 'note';
+  }
+
+  p120.textContent = ''; el.title = ''; el.className = 'note';
+  if (r.status === 'loan_pref' || monthly == null) { el.textContent = '- (월지급금 없음)'; return; }
+  if (inp.value === '' && !secretOn) { el.textContent = '- (이자율 입력)'; return; }
+  var g;
+  if (secretOn) { // 지점 기준값: Worker가 계산한 결과만 받는다
+    if (age == null) { el.textContent = '-'; return; }
+    var sg = secretGet('g', { monthly: monthly, housePrc: r.housePrc, age: age, lump: r.lumpUsed || 0 });
+    if (sg.state === 'wait') { el.textContent = '계산 중...'; return; }
+    if (sg.state === 'err') { el.textContent = '- (' + shortErr(sg.msg) + ')'; return; }
+    g = sg.val != null ? { amount: sg.val } : null;
+  } else {
+    g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age, r.lumpUsed || 0);
+  }
+  el.textContent = g ? won(g.amount) + '원' : '-';
+  if (g) {
+    el.className = '';
+    // 보증금액의 120%는 100만 원 미만 내림
+    p120.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원)';
+    if (g.months) el.title = g.months + '회차 보증잔액 ' + won(g.balance) + '원';
+  }
+}
+
+function updateGuarantee(r) {
+  updateGuaranteeLine(r);
+  if (typeof updateChart === 'function') updateChart(r);
+}
+
+function renderPension(r) {
+  $('resultSec').style.display = '';
+  var age = (typeof colInputs === 'function') ? colInputs().age : null;
+  var methodTxt = r.status === 'loan_pref' ? '대출상환우대 (API 미지원 · 별도상담)' : r.methodName;
+  var baseTxt = baseLabel().replace(/\s*시세$/, ''); // "부동산원 시세" → "부동산원"
+  var item = function(k, v, cls) { return '<span class="sum-item' + (cls ? ' ' + cls : '') + '"><span class="k">' + k + '</span><span class="v">' + v + '</span></span>'; };
+  var h = '<div class="sum">';
+  h += '<div class="sum-line">' +
+       item('연소자', (age == null ? '-' : age) + '세') +
+       item('주택가격', won(r.housePrc) + '원 <span class="sub">(' + baseTxt + ')</span>') +
+       item('지급방식', methodTxt) +
+       item('설정인출한도', won(r.lumpUsed) + ' <span class="sub">(가능한도 ' + (r.imax != null ? won(r.imax) : '-') + (r.lumpUsed !== r.lump ? ' · 조정 전 ' + won(r.lump) : '') + ')</span>') +
+       '</div>';
+  h += '<div class="sum-line">' +
+       item('보증금액', '<span id="gAmt"></span> <span id="g120" class="sub"></span>', 'key') +
+       item('설정금액', '<span id="gSet"></span>', 'key') +
+       item('이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" placeholder="예: 4.5" value="' + (secretOn ? '**' : guaranteeRateSaved()) + '"> %') +
+       '</div></div>';
+  r.notes.forEach(function(n) {
+    h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
+  });
+  $('summary').innerHTML = h;
+  $('gRate').oninput = function() {
+    rateFieldInput(this);
+    if (!secretOn) { try { localStorage.setItem('gRate', this.value); } catch (e) {} } // 숨김 값(99, **)은 저장하지 않는다
+    updateGuarantee(r);
+  };
+  updateGuarantee(r);
+
+  var rows = r.rows;
+  var th = '<tr><th>구간</th>';
+  rows.forEach(function(x, idx) {
+    var cls = idx === S.pickedCol ? ' class="picked-col"' : '';
+    var btn = !x.error ? '<br><button type="button" class="c-btn pick' + (idx === S.pickedCol ? ' active' : '') + '" onclick="pickPensionCol(' + idx + ')">' + (idx === S.pickedCol ? '✓ 신청서 반영됨' : '신청서 반영') + '</button>' : '';
+    th += '<th' + cls + '>' + x.label + btn + '</th>';
+  });
+  th += '</tr>';
+  $('pThead').innerHTML = th;
+
+  var cell = function(v, idx, sub) {
+    var cls = idx === S.pickedCol ? ' class="picked-col"' : '';
+    return '<td' + cls + '>' + (v == null ? '-' : '<b>' + won(v) + '원</b>' + (sub ? '<br><small>' + sub + '</small>' : '')) + '</td>';
+  };
+
+  var tb = '<tr><td>초회 월지급금 (1년차~)</td>' + rows.map(function(x, i) {
+    var cls = i === S.pickedCol ? ' class="picked-col"' : '';
+    return x.error ? '<td' + cls + '><small style="color:#777;">' + x.error + '</small></td>' : cell(x.first, i, '');
+  }).join('') + '</tr>';
+
+  tb += '<tr><td>증액기간 종료 후 (×70%)</td>' + rows.map(function(x, i) {
+    var cls = i === S.pickedCol ? ' class="picked-col"' : '';
+    if (x.error) return '<td' + cls + '>-</td>';
+    var afterVal = x.after != null ? x.after : x.y11;
+    var subTxt = x.afterYear ? '(' + x.afterYear + '년차~)' : '(변동 없음)';
+    return cell(afterVal, i, subTxt);
+  }).join('') + '</tr>';
+
+  var base = rows[0] ? rows[0].first : null;
+  tb += '<tr><td>정액형 대비 초회 차이</td>' + rows.map(function(x, i) {
+    var cls = i === S.pickedCol ? ' class="picked-col"' : '';
+    if (i === 0 || x.first == null || base == null) return '<td' + cls + '>-</td>';
+    var diff = x.first - base;
+    return '<td' + cls + ' style="color:' + (diff >= 0 ? '#0b5cad' : '#c62828') + ';">' + (diff > 0 ? '+' : '') + won(diff) + '원</td>';
+  }).join('') + '</tr>';
+
+  tb += '<tr><td>정액형 대비 증액종료후 차이</td>' + rows.map(function(x, i) {
+    var cls = i === S.pickedCol ? ' class="picked-col"' : '';
+    var afterVal = x.after != null ? x.after : x.y11;
+    if (i === 0 || afterVal == null || base == null) return '<td' + cls + '>-</td>';
+    var diffAfter = afterVal - base;
+    return '<td' + cls + ' style="color:' + (diffAfter >= 0 ? '#0b5cad' : '#c62828') + ';">' + (diffAfter > 0 ? '+' : '') + won(diffAfter) + '원</td>';
+  }).join('') + '</tr>';
+
+  $('pTbody').innerHTML = tb;
+  $('resultSec').scrollIntoView({ behavior: 'smooth' });
+}
+
+function applyPensionToApplication(r, colIdx) {
+  document.querySelectorAll('input[name="pay_type"]').forEach(function(cb) { cb.checked = false; });
+  $('pay_jongsin').value = '';
+  $('pay_honhab').value = '';
+  $('pay_hwakjung').value = '';
+
+  var row = r.rows[colIdx] || r.rows[0];
+  var indcLabel = row ? row.label : '정액형';
+
+  var checkVal = '';
+  if (r.status === 'loan_pref') {
+    checkVal = '대출상환우대_정액형';
+  } else if (r.method === '01') {
+    checkVal = '종신지급';
+    $('pay_jongsin').value = indcLabel;
+  } else if (r.method === '02') {
+    checkVal = '종신혼합';
+    $('pay_honhab').value = indcLabel;
+  } else if (r.method === '06') {
+    checkVal = '대출상환_정액형';
+  } else if (r.method === '07') {
+    checkVal = '우대지급_정액형';
+  } else if (r.method === '08') {
+    checkVal = '우대혼합_정액형';
+  }
+
+  if (checkVal) {
+    var targetCb = document.querySelector('input[name="pay_type"][value="' + checkVal + '"]');
+    if (targetCb) targetCb.checked = true;
+  }
+
+  recalcInchulBalance();
+}
+
+function updateLumpGuideBadge() {
+  var lump = targetLumpAmt();
+  var badge = $('lumpGuideBadge');
+  if (lump > 0 || (S.pensionRes && S.pensionRes.imax)) {
+    var txt = '💡 설정 인출한도: ' + won(lump) + '원';
+    if (S.pensionRes && S.pensionRes.imax != null) {
+      txt += ' (최대인출한도: ' + won(S.pensionRes.imax) + '원)';
+    }
+    txt += ' — 선순위대출 등 입력 시 잔액이 [기타]란에 자동 기입됩니다.';
+    badge.textContent = txt;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}

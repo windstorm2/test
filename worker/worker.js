@@ -1,5 +1,5 @@
 /**
- * 주택연금 상담 보조도구 v6.11 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.12 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
@@ -129,7 +129,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.11',
+          version: 'v6.12',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -142,7 +142,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.11' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.12' }, req);
       if (url.pathname === '/api/login') {
         if (req.method !== 'POST') return json({ error: 'POST only' }, req, 405);
         if (!needLogin(env)) return json({ error: '로그인이 설정되어 있지 않습니다.' }, req, 404);
@@ -1254,7 +1254,8 @@ async function pensionV5(b, ctx) {
 
   const makeRow = (code, label, afterYear, r) => {
     if (r.error) return { code, label, afterYear, first: null, after: null, error: r.error };
-    const a = r.amt, cut = Math.round(a * 0.7);
+    // 증액기간 종료 후 월지급금 = 최초 금액의 70%를 10원 단위로 반올림(공사 모의계산과 대조해 확인, 2026-11-28). 정수 연산으로 부동소수 오차를 피한다.
+    const a = r.amt, cut = Math.floor((a * 7 + 50) / 100) * 10;
     return { code, label, afterYear, first: a, after: afterYear ? cut : a, error: null };
   };
 

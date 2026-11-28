@@ -136,8 +136,13 @@ function updateGuarantee(r) {
   if (typeof updateChart === 'function') updateChart(r);
 }
 
+/* 증액기간 종료 후 월지급금: 최초 금액 × 70%를 10원 단위로 반올림 (공사 모의계산과 일치 확인, 2026-11-28) */
+function roundAfter(first) { return Math.floor((first * 7 + 50) / 100) * 10; }
+
 function renderPension(r) {
   $('resultSec').style.display = '';
+  // 서버(Worker) 버전과 상관없이 같은 값이 나오도록 화면에서도 같은 규칙으로 맞춘다
+  (r.rows || []).forEach(function(x) { if (x.afterYear && x.first != null && !x.error) x.after = roundAfter(x.first); });
   var age = (typeof colInputs === 'function') ? colInputs().age : null;
   var methodTxt = r.status === 'loan_pref' ? '대출상환우대 (API 미지원 · 별도상담)' : r.methodName;
   var baseTxt = baseLabel().replace(/\s*시세$/, ''); // "부동산원 시세" → "부동산원"
@@ -153,15 +158,20 @@ function renderPension(r) {
        item('보증금액', '<span id="gAmt"></span> <span id="g120" class="sub"></span>', 'key') +
        item('설정금액', '<span id="gSet"></span>', 'key') +
        item('이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" placeholder="예: 4.5" value="' + (secretOn ? '**' : guaranteeRateSaved()) + '"> %') +
+       item('주택가격 상승률', '<span id="gGrowthSlot"></span> %') +
        '</div></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
   });
+  // 주택가격 상승률 입력칸은 요약을 다시 그릴 때 사라지지 않도록 잠시 보관함으로 옮겼다가 이자율 옆 자리에 꽂는다
+  var gi = $('col_growth'); $('growthHolder').appendChild(gi);
   $('summary').innerHTML = h;
+  $('gGrowthSlot').appendChild(gi);
   $('gRate').oninput = function() {
     rateFieldInput(this);
     if (!secretOn) { try { localStorage.setItem('gRate', this.value); } catch (e) {} } // 숨김 값(99, **)은 저장하지 않는다
     updateGuarantee(r);
+    if (typeof colRefresh === 'function') colRefresh(); // 설정세금 참고값도 같은 이자율·숨김 상태를 따른다
   };
   updateGuarantee(r);
 

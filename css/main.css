@@ -432,7 +432,7 @@ body.locked .login-gate { display:flex; }
 .sum-item .v { color:#1d2733; }
 .sum-item.key .v { color:var(--primary-dark); }
 .sum .sub { color:#667085; }
-.sum input#gRate { width:64px; padding:3px 6px; font-size:inherit; font-family:inherit; border:1px solid var(--border); border-radius:5px; }
+.sum input#gRate, .sum input#col_growth { width:64px; padding:3px 6px; font-size:inherit; font-family:inherit; border:1px solid var(--border); border-radius:5px; }
 .p-table td b { font-weight:600; }
 .sum-item.key .v .note { color:#667085; }
 
