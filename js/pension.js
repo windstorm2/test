@@ -92,18 +92,12 @@ function renderPension(r) {
   h += '<div class="sum-line">' +
        item('보증금액', '<span id="gAmt"></span> <span id="g120" class="sub"></span>', 'key') +
        item('설정금액', '<span id="gSet"></span>', 'key') +
-       '</div>' +
-       '<div class="sum-line">' +
-       item('시뮬레이션 적용 이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" value="' + guaranteeRateSaved() + '"> %') +
-       item('주택가격 상승률', '<span id="gGrowthSlot"></span> %') +
        '</div></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
   });
-  // 주택가격 상승률 입력칸은 요약을 다시 그릴 때 사라지지 않도록 잠시 보관함으로 옮겼다가 이자율 옆 자리에 꽂는다
-  var gi = $('col_growth'); $('growthHolder').appendChild(gi);
   $('summary').innerHTML = h;
-  $('gGrowthSlot').appendChild(gi);
+  $('gRate').value = guaranteeRateSaved(); // 이자율·상승률 입력칸은 그래프 왼쪽 위에 겹쳐 표시한다(js/chart.js)
   $('gRate').oninput = function() {
     this.value = this.value.replace(/[^0-9.]/g, '');
     try { localStorage.setItem('gRate', this.value); } catch (e) {}
