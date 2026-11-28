@@ -118,10 +118,10 @@ function updateChart(r) {
   var eok = function(v) { return (v / 1e8).toFixed(1); };
   rk.forEach(function(k) {
     var gap = price[k] - bal[k];
-    rows.push('<tr><td>' + (k / 12) + '년 <small>(' + (age0 + k / 12) + '세)</small></td><td>' + eok(price[k]) + '</td><td>' + eok(S_.pay[k]) + '</td><td>' + eok(S_.lump[k]) +
-              '</td><td>' + eok(t2[k]) + '</td><td>' + eok(S_.fee[k]) + '</td><td>' + eok(S_.intr[k]) + '</td><td>' + eok(bal[k]) + '</td><td>' + (gap > 0 ? eok(gap) : '0.0') + '</td></tr>');
+    rows.push('<tr><td>' + (k / 12) + '년 <small>(' + (age0 + k / 12) + '세)</small></td><td>' + eok(S_.pay[k]) + '</td><td>' + eok(S_.lump[k]) +
+              '</td><td>' + eok(t2[k]) + '</td><td>' + eok(S_.fee[k]) + '</td><td>' + eok(S_.intr[k]) + '</td><td>' + eok(bal[k]) + '</td><td>' + eok(price[k]) + '</td><td>' + (gap > 0 ? eok(gap) : '0.0') + '</td></tr>');
   });
-  var table = '<div class="ch-unit">(단위: 억원, 누적금액)</div><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>주택가격</th><th>월지급금</th><th>일시인출금</th><th>받은금액</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  var table = '<div class="ch-unit">(단위: 억원, 누적금액)</div><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>월지급금</th><th>일시인출금</th><th>받은금액</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>주택가격</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
 
   box.innerHTML = '<div class="ch-wrap" id="gWrap">' + svg + '<div class="ch-tip" id="gTip" style="display:none"></div>' +
     '<div class="ch-inputs" id="gIn"></div></div>' + table;

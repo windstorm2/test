@@ -257,15 +257,16 @@ function colRefresh() {
       ' · 사용승인 ' + (inp.useYear ? inp.useYear + '년(' + inp.elapsed + '년 경과)' : '미조회');
     $('colResult').innerHTML = colRender(r);
     var pick = $('collateral_type') ? $('collateral_type').value : '';
+    var pn = { '근저당권': '저당권방식', '신탁(포괄)': '신탁방식(포괄)', '신탁(개별)': '신탁방식(개별)' }[pick] || pick; // 버튼 이름과 같은 표기
     var pk = pick === '근저당권' ? 'mortgage' : (pick.indexOf('신탁') === 0 ? 'trust' : '');
     document.querySelectorAll('[data-col-pick]').forEach(function(b) {
       b.classList.toggle('active', b.getAttribute('data-col-pick') === pick);
     });
     var m = $('colPickMsg');
     if (!pk) { m.className = ''; m.innerHTML = ''; }
-    else if (r.kind === 'mortgage_only' && pk === 'trust') { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 신탁방식을 이용할 수 없는 조건입니다(신탁 불가 주택 또는 보증금 있는 임대차 5건 이상).'; }
-    else if ((r.kind === 'trust' || r.kind === 'mortgage') && pk !== r.kind) { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pick + '. 추천은 "' + r.title + '"인데 다른 방식을 골랐습니다. 고객이 차이를 이해했는지 확인하세요.'; }
-    else { m.className = 'banner info'; m.innerHTML = '최종 선택 : ' + pick + ' (신청서의 담보제공방식에 반영했습니다)'; }
+    else if (r.kind === 'mortgage_only' && pk === 'trust') { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pn + '. 신탁방식을 이용할 수 없는 조건입니다(신탁 불가 주택 또는 보증금 있는 임대차 5건 이상).'; }
+    else if ((r.kind === 'trust' || r.kind === 'mortgage') && pk !== r.kind) { m.className = 'banner warn'; m.innerHTML = '최종 선택 : ' + pn + '. 추천은 "' + r.title + '"인데 다른 방식을 골랐습니다. 고객이 차이를 이해했는지 확인하세요.'; }
+    else { m.className = 'banner info'; m.innerHTML = '최종 선택 : ' + pn + ' (신청서의 담보제공방식에 반영했습니다)'; }
   } catch (e) {
     if (window.console) console.error('collateral', e);
   }
