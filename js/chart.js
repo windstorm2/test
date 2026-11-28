@@ -1,8 +1,8 @@
-/* 보증잔액의 구성과 주택가격 예상경로 그래프 (이자율·상승률을 직접 입력한 경우에만 표시)
+/* 보증잔액의 구성과 주택가격 예상경로 그래프 (입력한 이자율·상승률로만 그린다)
  * - 쌓은 면적: 일시 받은 돈, 월 지급금(누적), 보증료(누적), 이자(누적). 쌓인 높이 전체가 보증잔액이다.
  * - 선: 주택가격 예상경로. 선과 쌓인 면적 사이의 초록색 부분이 "남는 금액(상속분)"이다.
  * - 월지급금은 신청서에 반영한(선택한) 지급유형 기준이다. 초기증액형은 증액기간 종료 후 월지급금(×70%)으로 바뀐다.
- * - 99(숨김 기준값) 모드에서는 곡선만으로 이자율·상승률을 역산할 수 있으므로 그리지 않고 직접 입력을 안내한다. */
+ * - 보증금액·설정금액은 Worker의 고정 기준값으로 따로 계산되며, 이 그래프와 값이 다를 수 있다. */
 
 function chartFmt(v) { // 억/만 단위 표시
   var a = Math.abs(v), sign = v < 0 ? '-' : '';
@@ -25,7 +25,6 @@ function updateChart(r) {
   var msg = function(t) { box.innerHTML = '<div class="chart-msg">' + t + '</div>'; };
   if (!inp) { box.innerHTML = ''; return; }
   var ASK = '이자율과 주택가격 상승률을 입력해 주세요.';
-  if (secretOn) return msg(ASK);
   var pi = S.pickedCol != null && r.rows && r.rows[S.pickedCol] && !r.rows[S.pickedCol].error ? S.pickedCol : 0;
   var row = r.rows && r.rows[pi], monthly = row && !row.error && row.first != null ? row.first : null;
   if (r.status === 'loan_pref' || monthly == null) return msg('월지급금이 없어 그래프를 표시할 수 없습니다.');
@@ -111,7 +110,7 @@ function updateChart(r) {
   var table = '<div style="overflow-x:auto;"><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>집값(예상)</th><th>받은 돈</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
 
   box.innerHTML = '<h3 class="ch-h">시간이 지나면 어떻게 되나요? <small>(' + row.label + ' 월지급금 기준, 억·만원 표시)</small></h3>' +
-    (pi !== 0 ? '<div class="ch-note">※ 보증금액(약정금액)은 정액형 기준으로 계산하므로, 이 그림의 마지막 보증잔액과 다를 수 있습니다.</div>' : '') +
+    '<div class="ch-note">※ 입력한 이자율·상승률 기준 참고용 그림입니다. 위 보증금액(약정금액)은 별도 기준값으로 계산되어 다를 수 있습니다.</div>' +
     '<div class="ch-sum">' + txt + '</div><div class="ch-wrap" id="gWrap">' + svg + '<div class="ch-tip" id="gTip" style="display:none"></div></div>' +
     '<div class="ch-legend">' + legend + '</div>' + table;
 

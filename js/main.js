@@ -12,7 +12,7 @@ $('tokenBtn').onclick = function() {
   checkToken();
 };
 
-$('col_growth').addEventListener('input', function() { rateFieldInput(this); colRefresh(); }); // 입력칸이 요약 줄로 옮겨져 Step 5 영역의 입력 감지에서 빠졌으므로 직접 연결
+$('col_growth').addEventListener('input', function() { this.value = this.value.replace(/[^0-9.]/g, ''); if (S.pensionRes) updateChart(S.pensionRes); }); // 입력칸이 요약 줄로 옮겨져 Step 5 영역의 입력 감지에서 빠졌으므로 직접 연결
 $('loginForm').onsubmit = function(e) { e.preventDefault(); doLogin(); };
 $('logoutBtn').onclick = function() { lockScreen('로그아웃되었습니다.'); };
 

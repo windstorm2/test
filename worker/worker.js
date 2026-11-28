@@ -1,11 +1,11 @@
 /**
- * 주택연금 상담 보조도구 v6.12 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.13 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
  *  - SESSION_SECRET / LOGIN_ID / LOGIN_PW : (선택) 공용 로그인. 세 개가 모두 있으면 모든 /api/*가 1시간 출입증을 요구한다.
  *                    계정을 늘릴 때는 LOGIN_USERS="아이디:비밀번호,아이디:비밀번호"
- *  - LONGTERM_AVG_IR / HP_GROWTH_RATE : (선택) 숨긴 기준값(연 %, 숫자만). 화면에서 이자율·상승률에 99를 입력하면 이 값으로 계산(/api/calc)
+ *  - LONGTERM_AVG_IR / HP_GROWTH_RATE : 보증금액·설정금액 계산용 고정 기준값(연 %, 숫자만). 예상연금 응답에 금액만 포함
  *  - VWORLD_KEY     : 브이월드(V-World) 오픈API 인증키(중계 서버를 쓰면 Worker에는 없어도 됨)
  *  - VWORLD_RELAY_URL / VWORLD_RELAY_SECRET : (선택) Cloudflare 밖 중계 서버(vercel-relay/) 주소·비밀값. 있으면 브이월드를 그쪽으로 호출
  *  - BRANCH_TOKEN   : 지점 접속 토큰 (선택)
@@ -129,7 +129,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.12',
+          version: 'v6.13',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -142,7 +142,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.12' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.13' }, req);
       if (url.pathname === '/api/login') {
         if (req.method !== 'POST') return json({ error: 'POST only' }, req, 405);
         if (!needLogin(env)) return json({ error: '로그인이 설정되어 있지 않습니다.' }, req, 404);
@@ -170,8 +170,7 @@ export default {
         case '/api/bld/price': return json(await bldPriceChunk(sp, ctx), req);
         case '/api/land':      return json(await landInfo(sp, ctx), req);
         case '/api/sise':      return json(await hfSise(sp), req);
-        case '/api/pension':   return json(await pensionV5(await req.json(), ctx), req);
-        case '/api/calc':      return json(calcSecret(await req.json(), env), req);
+        case '/api/pension':   return json(await pensionV5(await req.json(), ctx, env), req);
       }
       return json({ error: 'unknown api ' + url.pathname }, req, 404);
     } catch (e) {
@@ -181,17 +180,16 @@ export default {
   },
 };
 
-/* ───── 숨긴 기준값 계산 (/api/calc) ─────
- * 화면에서 이자율·주택가격상승률에 99를 입력하면, 화면 대신 이 함수가 Cloudflare 변수로 계산해 결과만 돌려준다.
- *   LONGTERM_AVG_IR : 보증금액 계산용 추정 이자율(연 %, 예: 4.01)
+/* ───── 보증금액·설정금액 (Cloudflare 고정 기준값) ─────
+ * 이자율·주택가격 상승률은 화면에 보내지 않고 이 Worker가 변수로만 계산한다.
+ *   LONGTERM_AVG_IR : 보증금액 계산용 이자율(연 %, 예: 4.01)
  *   HP_GROWTH_RATE  : 주택가격 상승률(연 %, 예: 2.5)
- * 요청: { housePrc, age, monthly?, useRate?, useGrowth? } → 응답: { guarantee?:{amount}, future? } (잔액·이자율은 돌려주지 않는다) */
+ * 예상연금 응답(pensionV5)의 guarantee 항목으로 금액만 돌려준다(이자율·상승률·잔액은 돌려주지 않는다). */
 function envPct(env, name) {
   const v = parseFloat(String(env[name] == null ? '' : env[name]).replace('%', '').trim());
-  if (!Number.isFinite(v) || v < 0) throw new Error(`지점 기준값(${name})이 설정되지 않았거나 숫자가 아닙니다.`);
+  if (!Number.isFinite(v) || v < 0 || v >= 30) throw new Error(`기준값(${name}) 미설정`);
   return v;
 }
-/* js/pension.js의 calcGuarantee, js/collateral.js의 colFutureValue와 같은 식이다. 바꿀 때는 세 곳을 함께 고친다. */
 function guaranteeAmount(monthly, housePrc, ratePct, age, lump) {
   const months = 12 * (101 - Math.min(age, 90));
   if (!(months > 0)) return null;
@@ -209,16 +207,32 @@ function futureHousePrice(housePrc, age, growthPct) {
   const months = Math.max(0, (101 - age) * 12);
   return Math.floor(housePrc * Math.pow(1 + growthPct / 100 / 12, months) / 1000000) * 1000000;
 }
-function calcSecret(b, env) {
-  const housePrc = Number(b.housePrc), age = Number(b.age), monthly = Number(b.monthly);
-  if (!(housePrc > 0) || !Number.isFinite(age) || age < 0 || age > 130) throw new Error('주택가격과 나이를 확인하세요.');
-  const out = {};
-  if (b.useRate) {
-    if (!(monthly > 0)) throw new Error('월지급금이 필요합니다.');
-    out.guarantee = { amount: guaranteeAmount(monthly, housePrc, envPct(env, 'LONGTERM_AVG_IR'), age, b.lump) };
-  }
-  if (b.useGrowth) out.future = futureHousePrice(housePrc, age, envPct(env, 'HP_GROWTH_RATE'));
-  return out;
+/* 만 나이(한국 표준시 기준 오늘). js/collateral.js의 colAgeOf와 같은 규칙 */
+function ageOf8(b8) {
+  if (!/^\d{8}$/.test(b8 || '')) return null;
+  const y = +b8.slice(0, 4), m = +b8.slice(4, 6), d = +b8.slice(6, 8);
+  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const k = new Date(Date.now() + 9 * 3600 * 1000), ky = k.getUTCFullYear(), km = k.getUTCMonth() + 1, kd = k.getUTCDate();
+  let a = ky - y;
+  if (km < m || (km === m && kd < d)) a--;
+  return a >= 0 && a < 130 ? a : null;
+}
+/* 정액형 월지급금·일시인출금 기준 보증금액(약정금액), 120%, 설정금액(100세말 예상주택가격), 설정세금 참고값 */
+function guaranteeInfo(b, housePrc, monthly, lumpUsed, env) {
+  try {
+    const a1 = ageOf8(b.ownerBirth), a2 = b.spouseBirth ? ageOf8(b.spouseBirth) : null;
+    const age = a1 == null ? null : (a2 != null ? Math.min(a1, a2) : a1);
+    if (age == null) return { error: '나이 확인 필요' };
+    const g = monthly == null ? null : guaranteeAmount(monthly, housePrc, envPct(env, 'LONGTERM_AVG_IR'), age, lumpUsed);
+    const fut = futureHousePrice(housePrc, age, envPct(env, 'HP_GROWTH_RATE'));
+    return {
+      age,
+      amount: g,
+      amount120: g == null ? null : Math.floor(g * 1.2 / 1000000) * 1000000,
+      setAmount: fut,
+      tax: Math.round(fut * 0.0012),
+    };
+  } catch (e) { return { error: e.message }; }
 }
 
 /* ───── 1. 도로명주소 검색 + 동·호 자동 파싱 + 부산·양산 우선 필터 ───── */
@@ -1192,7 +1206,7 @@ async function hfCall5(p, ctx) {
   return { amt: num(it.monPmtAmt), imax: num(it.lmaxAmt ?? it.ImaxAmt), imin: num(it.lminAmt) };
 }
 
-async function pensionV5(b, ctx) {
+async function pensionV5(b, ctx, env) {
   const housePrc = Math.round(Number(b.housePrc));
   if (!housePrc || !/^\d{8}$/.test(b.ownerBirth || '')) throw new Error('평가주택가격·신청자 생년월일을 확인하세요');
   if (b.spouseBirth && !/^\d{8}$/.test(b.spouseBirth)) throw new Error('배우자 생년월일을 확인하세요');
@@ -1267,5 +1281,7 @@ async function pensionV5(b, ctx) {
     else rows.push(makeRow(code, label, afterYear, await call(method, code, lumpUsed)));
   }
 
-  return { method, methodName: METHOD_NAME[method], prefer, lump, lumpUsed, imax, status, notes, rows, housePrc };
+  const r0 = rows[0];
+  const guarantee = guaranteeInfo(b, housePrc, status !== 'loan_pref' && r0 && !r0.error ? r0.first : null, lumpUsed, env || {});
+  return { method, methodName: METHOD_NAME[method], prefer, lump, lumpUsed, imax, status, notes, rows, housePrc, guarantee };
 }

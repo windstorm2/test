@@ -5,40 +5,6 @@
  * 불러오는 순서: common → api → customer → building → price → pension → application → main
  */
 
-/* ───── 숨긴 기준값(99) ─────
- * 이자율·주택가격상승률에 99를 입력하면 화면에서 계산하지 않고 Worker(/api/calc)가 Cloudflare 변수 값으로 계산해 결과만 돌려준다.
- * 같은 입력은 다시 호출하지 않도록 결과를 기억한다. 오류는 5초만 기억해 다시 시도할 수 있게 한다. */
-var SECRET_CODE = 99, secCache = {}, secPending = {};
-/* 이자율 또는 주택가격상승률에 99를 입력하면 두 항목 모두 Cloudflare 기준값을 쓰고, 화면에는 **로만 표시한다.
-   (비밀번호처럼 값 자체는 화면과 브라우저 저장소에 남기지 않는다.) 숨김 상태에서 어느 칸이든 고쳐 쓰면 숨김이 해제되고
-   고친 칸만 남고 다른 칸은 비워진다. */
-var secretOn = false;
-function rateFieldInput(el) {
-  var v = el.value.trim(), g = $('gRate'), c = $('col_growth');
-  var other = el === g ? c : g;
-  if (v === String(SECRET_CODE)) { secretOn = true; if (g) g.value = '**'; if (c) c.value = '**'; return; }
-  if (secretOn && v !== '**') { secretOn = false; el.value = v.replace(/[^0-9.]/g, ''); if (other) other.value = ''; }
-}
-
-function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주택가격
-  var key = kind === 'g' ? ['g', p.monthly, p.housePrc, p.age, p.lump || 0].join('|') : ['f', p.housePrc, p.age].join('|');
-  if (secCache[key]) return secCache[key];
-  if (!secPending[key]) {
-    secPending[key] = 1;
-    var body = kind === 'g' ? { housePrc: p.housePrc, age: p.age, monthly: p.monthly, lump: p.lump || 0, useRate: true } : { housePrc: p.housePrc, age: p.age, useGrowth: true };
-    api('/api/calc', { method: 'POST', body: JSON.stringify(body) }).then(function(j) {
-      secCache[key] = { state: 'ok', val: kind === 'g' ? (j.guarantee && j.guarantee.amount) : j.future };
-    }).catch(function(e) {
-      secCache[key] = { state: 'err', msg: e.message };
-      setTimeout(function() { delete secCache[key]; }, 5000);
-    }).then(function() {
-      delete secPending[key];
-      if (S.pensionRes) updateGuarantee(S.pensionRes);
-      if (typeof colRefresh === 'function') colRefresh();
-    });
-  }
-  return { state: 'wait' };
-}
 
 /* ───── 보증금액 계산 ─────
  * 개월 수 = 12 × (101 − min(연소자 만나이, 90). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
@@ -81,54 +47,23 @@ function guaranteeRateSaved() {
   try {
     var v = localStorage.getItem('gRate') || '';
     var n = Number(v);
-    if (v !== '' && !(n >= 0 && n < SECRET_CODE)) { localStorage.removeItem('gRate'); return ''; }
+    if (v !== '' && !(n >= 0 && n < 30)) { localStorage.removeItem('gRate'); return ''; }
     return v;
   } catch (e) { return ''; }
 }
 
-/* 오류 문구를 요약 줄에 맞게 줄인다 */
-function shortErr(m) {
-  m = String(m || '');
-  if (m.indexOf('지점 기준값') >= 0) return '기준값 미설정';
-  if (m.indexOf('로그인') >= 0) return '로그인 필요';
-  return m.length > 24 ? m.slice(0, 24) + '…' : m;
-}
-
+/* 보증금액·120%·설정금액은 Worker가 Cloudflare 고정 기준값으로 계산해 예상연금 응답(r.guarantee)에 담아 준다.
+   화면의 이자율·상승률 입력칸은 아래 그래프에만 쓴다. */
 function updateGuaranteeLine(r) {
-  var el = $('gAmt'), inp = $('gRate'), st = $('gSet'), p120 = $('g120');
-  if (!el || !inp) return;
-  var row = r.rows && r.rows[0];
-  var monthly = row && !row.error ? row.first : null;
-  var ci = (typeof colInputs === 'function') ? colInputs() : {};
-  var age = ci.age == null ? null : ci.age;
-
-  // 설정금액(100세말 예상주택가격): 이자율과 무관하게 상승률만 있으면 표시
-  if (st) {
-    var fi = colFutureInfo(ci.housePrice, age, ci.growth);
-    st.textContent = fi.val != null ? won(fi.val) + '원' : (fi.note || '상승률 미입력');
-    st.className = fi.val != null ? '' : 'note';
-  }
-
-  p120.textContent = ''; el.title = ''; el.className = 'note';
-  if (r.status === 'loan_pref' || monthly == null) { el.textContent = '- (월지급금 없음)'; return; }
-  if (inp.value === '' && !secretOn) { el.textContent = '- (이자율 입력)'; return; }
-  var g;
-  if (secretOn) { // 지점 기준값: Worker가 계산한 결과만 받는다
-    if (age == null) { el.textContent = '-'; return; }
-    var sg = secretGet('g', { monthly: monthly, housePrc: r.housePrc, age: age, lump: r.lumpUsed || 0 });
-    if (sg.state === 'wait') { el.textContent = '계산 중...'; return; }
-    if (sg.state === 'err') { el.textContent = '- (' + shortErr(sg.msg) + ')'; return; }
-    g = sg.val != null ? { amount: sg.val } : null;
-  } else {
-    g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age, r.lumpUsed || 0);
-  }
-  el.textContent = g ? won(g.amount) + '원' : '-';
-  if (g) {
-    el.className = '';
-    // 보증금액의 120%는 100만 원 미만 내림
-    p120.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원)';
-    if (g.months) el.title = g.months + '회차 보증잔액 ' + won(g.balance) + '원';
-  }
+  var el = $('gAmt'), st = $('gSet'), p120 = $('g120');
+  if (!el) return;
+  var g = r.guarantee || {};
+  p120.textContent = ''; el.className = 'note'; el.title = '';
+  if (st) { st.textContent = g.setAmount != null ? won(g.setAmount) + '원' : '-'; st.className = g.setAmount != null ? '' : 'note'; }
+  if (g.error) { el.textContent = '- (' + g.error + ')'; if (st) st.textContent = '- (' + g.error + ')'; return; }
+  if (g.amount == null) { el.textContent = '- (월지급금 없음)'; return; }
+  el.textContent = won(g.amount) + '원'; el.className = '';
+  p120.textContent = '(120% ' + won(g.amount120) + '원)';
 }
 
 function updateGuarantee(r) {
@@ -157,8 +92,8 @@ function renderPension(r) {
   h += '<div class="sum-line">' +
        item('보증금액', '<span id="gAmt"></span> <span id="g120" class="sub"></span>', 'key') +
        item('설정금액', '<span id="gSet"></span>', 'key') +
-       item('이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" placeholder="예: 4.5" value="' + (secretOn ? '**' : guaranteeRateSaved()) + '"> %') +
-       item('주택가격 상승률', '<span id="gGrowthSlot"></span> %') +
+       item('그래프 이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"> %') +
+       item('그래프 상승률', '<span id="gGrowthSlot"></span> %') +
        '</div></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
@@ -168,10 +103,9 @@ function renderPension(r) {
   $('summary').innerHTML = h;
   $('gGrowthSlot').appendChild(gi);
   $('gRate').oninput = function() {
-    rateFieldInput(this);
-    if (!secretOn) { try { localStorage.setItem('gRate', this.value); } catch (e) {} } // 숨김 값(99, **)은 저장하지 않는다
-    updateGuarantee(r);
-    if (typeof colRefresh === 'function') colRefresh(); // 설정세금 참고값도 같은 이자율·숨김 상태를 따른다
+    this.value = this.value.replace(/[^0-9.]/g, '');
+    try { localStorage.setItem('gRate', this.value); } catch (e) {}
+    updateChart(r);
   };
   updateGuarantee(r);
 
