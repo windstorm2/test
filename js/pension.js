@@ -47,20 +47,29 @@ function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주
  *          보증료 = 내림(기준 × 0.95% / 12), 이자 = 내림((기준 + 보증료) × 이자율 / 12)
  *          보증잔액 = round(기준 + 보증료 + 이자, 0)
  * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
-function calcGuarantee(monthly, housePrc, ratePct, age, lump) {
+function guaranteeRun(monthly, housePrc, ratePct, age, lump, keep) {
   if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0) || ratePct > 30) return null; // 이자율 30% 초과는 입력 오류로 본다
   var effAge = Math.min(age, 90); // 연소자 나이 상한 90세 적용 (최소 132회차)
   var months = 12 * (101 - effAge);
   if (!(months > 0)) return null;
-  var rate = ratePct / 100, init = Math.floor(housePrc * 0.01) + Math.max(0, Number(lump) || 0), bal = 0; // init = 초기보증료 + 일시인출금
+  var lumpAmt = Math.max(0, Number(lump) || 0);
+  var rate = ratePct / 100, initFee = Math.floor(housePrc * 0.01), init = initFee + lumpAmt, bal = 0; // init = 초기보증료 + 일시인출금
+  // keep이면 그래프용으로 회차별 누적(일시인출금, 월지급금, 보증료, 이자)과 보증잔액을 함께 남긴다(0회차 = 가입 시점)
+  var ser = keep ? { lump: [lumpAmt], pay: [0], fee: [initFee], intr: [0], bal: [init] } : null;
+  var cumFee = initFee, cumIntr = 0;
   for (var i = 1; i <= months; i++) {
     var base = bal + (i === 1 ? init : 0) + monthly;
     var fee = Math.floor(base * 0.0095 / 12); // 연보증료율 0.95% (전 회차), 원 단위 내림
     var intr = Math.floor((base + fee) * rate / 12);
     bal = Math.round(base + fee + intr); // 보증잔액 = round(합계, 0)
+    if (keep) {
+      cumFee += fee; cumIntr += intr;
+      ser.lump.push(lumpAmt); ser.pay.push(monthly * i); ser.fee.push(cumFee); ser.intr.push(cumIntr); ser.bal.push(bal);
+    }
   }
-  return { months: months, balance: bal, amount: Math.floor(bal / 1000000) * 1000000 };
+  return { months: months, balance: bal, amount: Math.floor(bal / 1000000) * 1000000, series: ser, effAge: effAge };
 }
+function calcGuarantee(monthly, housePrc, ratePct, age, lump) { return guaranteeRun(monthly, housePrc, ratePct, age, lump, false); }
 
 /* 저장된 이자율. 예전 버전이 99(숨김 코드)나 `**`를 저장해 둔 경우 읽지 않고 지운다. */
 function guaranteeRateSaved() {
@@ -80,7 +89,7 @@ function shortErr(m) {
   return m.length > 24 ? m.slice(0, 24) + '…' : m;
 }
 
-function updateGuarantee(r) {
+function updateGuaranteeLine(r) {
   var el = $('gAmt'), inp = $('gRate'), st = $('gSet'), p120 = $('g120');
   if (!el || !inp) return;
   var row = r.rows && r.rows[0];
@@ -115,6 +124,11 @@ function updateGuarantee(r) {
     p120.textContent = '(120% ' + won(Math.floor(g.amount * 1.2 / 1000000) * 1000000) + '원)';
     if (g.months) el.title = g.months + '회차 보증잔액 ' + won(g.balance) + '원';
   }
+}
+
+function updateGuarantee(r) {
+  updateGuaranteeLine(r);
+  if (typeof updateChart === 'function') updateChart(r);
 }
 
 function renderPension(r) {

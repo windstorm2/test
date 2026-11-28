@@ -435,3 +435,27 @@ body.locked .login-gate { display:flex; }
 .sum input#gRate { width:64px; padding:3px 6px; font-size:inherit; font-family:inherit; border:1px solid var(--border); border-radius:5px; }
 .p-table td b { font-weight:600; }
 .sum-item.key .v .note { color:#667085; }
+
+/* 보증잔액·집값 그래프 */
+#gChart { margin-top:14px; }
+.chart-msg { padding:10px 12px; border:1px dashed var(--border); border-radius:6px; color:#667085; font-size:13px; }
+.ch-h { font-size:15px; margin:4px 0 6px; color:var(--primary-dark); }
+.ch-h small { font-weight:400; color:#667085; font-size:12px; }
+.ch-sum { font-size:14px; line-height:1.6; margin-bottom:8px; }
+.ch-wrap { position:relative; }
+#gSvg { width:100%; height:auto; display:block; font-family:inherit; }
+.ch-t { font-size:12px; fill:#475467; }
+.ch-t.sub { fill:#98a2b3; }
+.ch-grid { stroke:#e4e7ec; stroke-width:1; }
+.ch-tick { stroke:#98a2b3; }
+.ch-a1 { fill:#1d4e89; } .ch-a2 { fill:#5b9bd5; } .ch-a3 { fill:#f2a65a; } .ch-a4 { fill:#d9534f; }
+.ch-gap { fill:#bfe3c8; }
+.ch-price { fill:none; stroke:#1b7a3d; stroke-width:2.5; }
+.ch-cross { stroke:#667085; stroke-width:1; stroke-dasharray:4 3; }
+.ch-hov { stroke:#344054; stroke-width:1; }
+.ch-tip { position:absolute; pointer-events:none; background:rgba(29,39,51,.94); color:#fff; font-size:12px; line-height:1.5; padding:6px 9px; border-radius:6px; white-space:nowrap; }
+.ch-legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:13px; color:#475467; margin:6px 0 8px; }
+.ch-legend .sw { display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+.ch-legend .sw-line { display:inline-block; width:16px; height:0; border-top:3px solid #1b7a3d; margin-right:5px; vertical-align:3px; }
+.ch-table td, .ch-table th { text-align:right; } .ch-table td:first-child, .ch-table th:first-child { text-align:left; }
+.ch-legend .sw.ch-a1 { background:#1d4e89; } .ch-legend .sw.ch-a2 { background:#5b9bd5; } .ch-legend .sw.ch-a3 { background:#f2a65a; } .ch-legend .sw.ch-a4 { background:#d9534f; } .ch-legend .sw.ch-gap { background:#bfe3c8; }

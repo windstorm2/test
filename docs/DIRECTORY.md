@@ -17,6 +17,7 @@ test/
 │  ├─ building.js       Step 2 주소 검색, 건축물·토지·대지권
 │  ├─ price.js          공시가격 조회, Step 3 주택가격 산정
 │  ├─ pension.js        Step 4 예상연금
+│  ├─ chart.js          보증잔액 구성·주택가격 예상경로 그래프(이자율·상승률 직접 입력 시에만)
 │  ├─ application.js    Step 6 신청서, 맞춤형 필요서류
 │  ├─ collateral.js     Step 5 담보방식 추천 (v6.1)
 │  └─ main.js           화면 이벤트 연결과 시작 코드
