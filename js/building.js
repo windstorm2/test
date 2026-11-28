@@ -25,6 +25,7 @@ function searchAddrUI() {
       b.onclick = function() {
         Array.prototype.forEach.call($('addrList').children, function(c) { c.className = ''; });
         b.className = 'sel';
+        Array.prototype.slice.call($('addrList').children).forEach(function(c) { if (c !== b) $('addrList').removeChild(c); }); // 선택한 항목만 남긴다
         pickAddr(a);
       };
       $('addrList').appendChild(b);

@@ -57,7 +57,7 @@ function updateChart(r) {
   if (cross != null && cross > n) cross = null; // 95세 이후 교차는 표시하지 않는다
   var lastGap = cross == null ? n : cross - 1; // 집값이 잔액보다 큰 마지막 시점
 
-  var W = 760, H = 330, L = 58, R = 34, T = 16, B = 44, pw = W - L - R, ph = H - T - B;
+  var W = 760, H = 330, L = 0, R = 0, T = 16, B = 44, pw = W - L - R, ph = H - T - B;
   var ymax = Math.max(price[n], bal[n], price[0]) * 1.04, step = chartNiceStep(ymax, 5);
   ymax = Math.ceil(ymax / step) * step;
   var X = function(k) { return L + pw * (k / n); }, Y = function(v) { return T + ph * (1 - v / ymax); };
@@ -68,7 +68,7 @@ function updateChart(r) {
   var svg = '<svg id="gSvg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="보증잔액 구성과 주택가격 예상경로">';
   for (var yv = 0; yv <= ymax + 1; yv += step) {
     svg += '<line class="ch-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(yv).toFixed(1) + '" y2="' + Y(yv).toFixed(1) + '"/>' +
-           '<text class="ch-t" x="' + (L - 6) + '" y="' + (Y(yv) + 4).toFixed(1) + '" text-anchor="end">' + chartAxis(yv) + '</text>';
+           '<text class="ch-t" x="' + (L + 4) + '" y="' + (Y(yv) - 4).toFixed(1) + '" text-anchor="start">' + chartAxis(yv) + '</text>';
   }
   // 남는 금액(집값 − 보증잔액): 집값이 더 큰 구간
   if (lastGap >= 1) svg += '<path class="ch-gap" d="M' + pts(price, 0, lastGap).join('L') + 'L' + pts(bal, 0, lastGap).reverse().join('L') + 'Z"/>';
@@ -85,7 +85,7 @@ function updateChart(r) {
            '<text class="ch-t" x="' + X(k).toFixed(1) + '" y="' + (T + ph + 18) + '" text-anchor="' + (k === n ? 'end' : 'middle') + '">' + lab + '</text>' +
            '<text class="ch-t sub" x="' + X(k).toFixed(1) + '" y="' + (T + ph + 33) + '" text-anchor="' + (k === n ? 'end' : 'middle') + '">' + sub + '</text>';
   });
-  svg += '<text class="ch-t sub" x="' + L + '" y="' + (T + ph + 18) + '" text-anchor="middle">0</text>';
+  svg += '<text class="ch-t sub" x="' + L + '" y="' + (T + ph + 18) + '" text-anchor="start">0</text>';
   var crossTxt = '';
   if (cross != null) {
     crossTxt = (cross / 12).toFixed(1) + '년';
@@ -114,12 +114,13 @@ function updateChart(r) {
   var rows = [], rk = [];
   for (i = 60; i <= n; i += 60) rk.push(i);
   if (rk[rk.length - 1] !== n) rk.push(n);
+  var eok = function(v) { return (v / 1e8).toFixed(1); };
   rk.forEach(function(k) {
     var gap = price[k] - bal[k];
-    rows.push('<tr><td>' + (k / 12) + '년 <small>(' + (age0 + k / 12) + '세' + ')</small></td><td>' + chartFmt(price[k]) + '</td><td>' + chartFmt(t2[k]) +
-              '</td><td>' + chartFmt(S_.fee[k]) + '</td><td>' + chartFmt(S_.intr[k]) + '</td><td>' + chartFmt(bal[k]) + '</td><td>' + (gap > 0 ? chartFmt(gap) : '0') + '</td></tr>');
+    rows.push('<tr><td>' + (k / 12) + '년 <small>(' + (age0 + k / 12) + '세)</small></td><td>' + eok(price[k]) + '</td><td>' + eok(S_.pay[k]) + '</td><td>' + eok(S_.lump[k]) +
+              '</td><td>' + eok(t2[k]) + '</td><td>' + eok(S_.fee[k]) + '</td><td>' + eok(S_.intr[k]) + '</td><td>' + eok(bal[k]) + '</td><td>' + (gap > 0 ? eok(gap) : '0.0') + '</td></tr>');
   });
-  var table = '<div style="overflow-x:auto;"><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>주택가격(예상)</th><th>받은 돈</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
+  var table = '<div class="ch-unit">(단위: 억원)</div><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>주택가격(예상)</th><th>월지급금</th><th>일시인출금</th><th>받은금액</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
 
   box.innerHTML = '<div class="ch-wrap" id="gWrap">' + svg + '<div class="ch-tip" id="gTip" style="display:none"></div>' +
     '<div class="ch-inputs" id="gIn"></div></div>' + table;
