@@ -204,9 +204,9 @@ function colInputs() {
 }
 
 function colRender(r) {
+  if (r.kind === 'incomplete') return '<div class="banner info">' + r.title + '</div>'; // 연소자·가족 요약 줄과 같은 서식
   var h = ['<h3>' + r.title + '</h3>'];
   if (r.one) h.push('<div class="col-one">' + r.one + '</div>');
-  if (r.kind === 'incomplete') return h.join('');
   var lv = ['없음', '낮음', '높음', '매우 높음'];
   var li = function(arr) { return '<ul>' + arr.map(function(x) { return '<li>' + x + '</li>'; }).join('') + '</ul>'; };
   h.push('<div class="col-kv">');

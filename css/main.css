@@ -447,9 +447,10 @@ body.locked .login-gate { display:flex; }
 .ch-t.sub { fill:#98a2b3; }
 .ch-grid { stroke:#e4e7ec; stroke-width:1; }
 .ch-tick { stroke:#98a2b3; }
-.ch-a1 { fill:#1a3a6b; } .ch-a2 { fill:#a9c9ee; } .ch-a3 { fill:#5f98d6; } .ch-a4 { fill:#1a3a6b; }
+.ch-a1 { fill:hsl(212,72%,56%); } .ch-a2 { fill:hsl(212,72%,56%); } .ch-a3 { fill:hsl(212,28%,86%); } .ch-a4 { fill:hsl(212,50%,72%); }
 .ch-gap { fill:#fdf0dc; }
-.ch-price { fill:none; stroke:#e8912d; stroke-width:2.5; }
+.ch-price { fill:none; stroke:#e8912d; stroke-width:2.5; stroke-dasharray:2 5; stroke-linecap:round; }
+.ch-bal { fill:none; stroke:hsl(212,95%,34%); stroke-width:3.5; stroke-linejoin:round; }
 .ch-cross { stroke:#667085; stroke-width:1; stroke-dasharray:4 3; }
 .ch-hov { stroke:#344054; stroke-width:1; }
 .ch-tip { position:absolute; pointer-events:none; background:rgba(29,39,51,.94); color:#fff; font-size:12px; line-height:1.5; padding:6px 9px; border-radius:6px; white-space:nowrap; }
@@ -463,5 +464,7 @@ body.locked .login-gate { display:flex; }
 .ch-inputs input { width:56px; padding:2px 6px; font-size:13px; font-family:inherit; border:1px solid var(--border); border-radius:5px; }
 .chart-msg { min-height:84px; padding-left:210px; }
 .ch-lab { font-size:12.5px; font-weight:700; fill:#fff; pointer-events:none; }
-.ch-lab.a2 { fill:#1a3a6b; } .ch-lab.a3 { fill:#fff; } .ch-lab.a4 { fill:#fff; } .ch-lab.gap { fill:#8a5a12; } .ch-lab.price { fill:#b8691a; font-size:13px; paint-order:stroke; stroke:#fff; stroke-width:3px; }
+.ch-lab.a2 { fill:#fff; } .ch-lab.a3 { fill:#1a3a6b; } .ch-lab.a4 { fill:#0c2f66; } .ch-lab.gap { fill:#8a5a12; } .ch-lab.price { fill:#b8691a; font-size:13px; paint-order:stroke; stroke:#fff; stroke-width:3px; }
 .ch-note { font-size:12.5px; color:#667085; margin-bottom:6px; }
+
+.ch-fig td { padding:8px; } .ch-fig img { display:block; width:100%; height:auto; }

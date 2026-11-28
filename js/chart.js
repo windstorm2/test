@@ -74,6 +74,7 @@ function updateChart(r) {
   if (lastGap >= 1) svg += '<path class="ch-gap" d="M' + pts(price, 0, lastGap).join('L') + 'L' + pts(bal, 0, lastGap).reverse().join('L') + 'Z"/>';
   svg += '<path class="ch-a4" d="' + area(t4, t3) + '"/><path class="ch-a3" d="' + area(t3, t2) + '"/>' +
          '<path class="ch-a2" d="' + area(t2, zero) + '"/>' +
+         '<polyline class="ch-bal" points="' + pts(bal, 0, n).join(' ') + '"/>' +
          '<polyline class="ch-price" points="' + pts(price, 0, n).join(' ') + '"/>';
   // 가로축: 5년 단위 + 마지막(95세)
   var ticks = [];
