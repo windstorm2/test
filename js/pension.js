@@ -21,11 +21,11 @@ function rateFieldInput(el) {
 }
 
 function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주택가격
-  var key = kind === 'g' ? ['g', p.monthly, p.housePrc, p.age].join('|') : ['f', p.housePrc, p.age].join('|');
+  var key = kind === 'g' ? ['g', p.monthly, p.housePrc, p.age, p.lump || 0].join('|') : ['f', p.housePrc, p.age].join('|');
   if (secCache[key]) return secCache[key];
   if (!secPending[key]) {
     secPending[key] = 1;
-    var body = kind === 'g' ? { housePrc: p.housePrc, age: p.age, monthly: p.monthly, useRate: true } : { housePrc: p.housePrc, age: p.age, useGrowth: true };
+    var body = kind === 'g' ? { housePrc: p.housePrc, age: p.age, monthly: p.monthly, lump: p.lump || 0, useRate: true } : { housePrc: p.housePrc, age: p.age, useGrowth: true };
     api('/api/calc', { method: 'POST', body: JSON.stringify(body) }).then(function(j) {
       secCache[key] = { state: 'ok', val: kind === 'g' ? (j.guarantee && j.guarantee.amount) : j.future };
     }).catch(function(e) {
@@ -42,17 +42,17 @@ function secretGet(kind, p) { // kind: 'g' 보증금액, 'f' 100세말 예상주
 
 /* ───── 보증금액 계산 ─────
  * 개월 수 = 12 × (101 − min(연소자 만나이, 90). 월지급금은 선택된 지급방식의 정액형 초회 월지급금을 모든 회차에 적용한다.
- * 1회차: 초기보증료 = 내림(주택가격 × 1%), 이후 회차는 없음.
- * 매 회차: 기준 = 직전 보증잔액 + (1회차만 초기보증료) + 월지급금
+ * 1회차: 초기보증료 = 내림(주택가격 × 1%)과 일시인출금(설정인출한도)을 1회차 기준에 함께 더한다(2026-11-28). 이후 회차는 없음.
+ * 매 회차: 기준 = 직전 보증잔액 + (1회차만 초기보증료 + 일시인출금) + 월지급금
  *          보증료 = 내림(기준 × 0.95% / 12), 이자 = 내림((기준 + 보증료) × 이자율 / 12)
  *          보증잔액 = round(기준 + 보증료 + 이자, 0)
  * 보증금액 = 마지막 회차 보증잔액을 100만 원 단위로 내림 */
-function calcGuarantee(monthly, housePrc, ratePct, age) {
+function calcGuarantee(monthly, housePrc, ratePct, age, lump) {
   if (!(monthly > 0) || !(housePrc > 0) || age == null || !(ratePct >= 0) || ratePct > 30) return null; // 이자율 30% 초과는 입력 오류로 본다
   var effAge = Math.min(age, 90); // 연소자 나이 상한 90세 적용 (최소 132회차)
   var months = 12 * (101 - effAge);
   if (!(months > 0)) return null;
-  var rate = ratePct / 100, init = Math.floor(housePrc * 0.01), bal = 0;
+  var rate = ratePct / 100, init = Math.floor(housePrc * 0.01) + Math.max(0, Number(lump) || 0), bal = 0; // init = 초기보증료 + 일시인출금
   for (var i = 1; i <= months; i++) {
     var base = bal + (i === 1 ? init : 0) + monthly;
     var fee = Math.floor(base * 0.0095 / 12); // 연보증료율 0.95% (전 회차), 원 단위 내림
@@ -101,12 +101,12 @@ function updateGuarantee(r) {
   var g;
   if (secretOn) { // 지점 기준값: Worker가 계산한 결과만 받는다
     if (age == null) { el.textContent = '-'; return; }
-    var sg = secretGet('g', { monthly: monthly, housePrc: r.housePrc, age: age });
+    var sg = secretGet('g', { monthly: monthly, housePrc: r.housePrc, age: age, lump: r.lumpUsed || 0 });
     if (sg.state === 'wait') { el.textContent = '계산 중...'; return; }
     if (sg.state === 'err') { el.textContent = '- (' + shortErr(sg.msg) + ')'; return; }
     g = sg.val != null ? { amount: sg.val } : null;
   } else {
-    g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age);
+    g = calcGuarantee(monthly, r.housePrc, Number(inp.value), age, r.lumpUsed || 0);
   }
   el.textContent = g ? won(g.amount) + '원' : '-';
   if (g) {

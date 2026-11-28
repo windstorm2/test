@@ -1,5 +1,5 @@
 /**
- * 주택연금 상담 보조도구 v6.10 — Cloudflare Worker API 전용
+ * 주택연금 상담 보조도구 v6.11 — Cloudflare Worker API 전용
  * Secrets:
  *  - DATA_GO_KR_KEY : 공공데이터포털 일반 인증키
  *  - JUSO_CONFM_KEY : 도로명주소 검색API 승인키
@@ -129,7 +129,7 @@ export default {
       if (url.pathname === '/api/health') {
         return json({
           ok: true,
-          version: 'v6.10',
+          version: 'v6.11',
           hasDataKey: !!env.DATA_GO_KR_KEY,
           hasJusoKey: !!env.JUSO_CONFM_KEY,
           hasVworldKey: !!env.VWORLD_KEY,
@@ -142,7 +142,7 @@ export default {
           cache: ctx.cache,
         }, req);
       }
-      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.10' }, req);
+      if (!url.pathname.startsWith('/api/')) return json({ ok: true, service: 'homepension-api-v6.11' }, req);
       if (url.pathname === '/api/login') {
         if (req.method !== 'POST') return json({ error: 'POST only' }, req, 405);
         if (!needLogin(env)) return json({ error: '로그인이 설정되어 있지 않습니다.' }, req, 404);
@@ -192,10 +192,10 @@ function envPct(env, name) {
   return v;
 }
 /* js/pension.js의 calcGuarantee, js/collateral.js의 colFutureValue와 같은 식이다. 바꿀 때는 세 곳을 함께 고친다. */
-function guaranteeAmount(monthly, housePrc, ratePct, age) {
+function guaranteeAmount(monthly, housePrc, ratePct, age, lump) {
   const months = 12 * (101 - Math.min(age, 90));
   if (!(months > 0)) return null;
-  const rate = ratePct / 100, init = Math.floor(housePrc * 0.01);
+  const rate = ratePct / 100, init = Math.floor(housePrc * 0.01) + Math.max(0, Number(lump) || 0); // 초기보증료 + 일시인출금
   let bal = 0;
   for (let i = 1; i <= months; i++) {
     const base = bal + (i === 1 ? init : 0) + monthly;
@@ -215,7 +215,7 @@ function calcSecret(b, env) {
   const out = {};
   if (b.useRate) {
     if (!(monthly > 0)) throw new Error('월지급금이 필요합니다.');
-    out.guarantee = { amount: guaranteeAmount(monthly, housePrc, envPct(env, 'LONGTERM_AVG_IR'), age) };
+    out.guarantee = { amount: guaranteeAmount(monthly, housePrc, envPct(env, 'LONGTERM_AVG_IR'), age, b.lump) };
   }
   if (b.useGrowth) out.future = futureHousePrice(housePrc, age, envPct(env, 'HP_GROWTH_RATE'));
   return out;
