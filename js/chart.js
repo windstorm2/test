@@ -1,5 +1,5 @@
 /* 보증잔액의 구성과 주택가격 예상경로 그래프 (입력한 이자율·상승률로만 그린다)
- * - 쌓은 면적: 일시 받은 돈, 월 지급금(누적), 보증료(누적), 이자(누적). 쌓인 높이 전체가 보증잔액이다.
+ * - 쌓은 면적: 받은금액(월지급금+일시인출금 누적), 보증료, 이자. 쌓인 높이 전체가 보증잔액이다.
  * - 선: 주택가격 예상경로. 선과 쌓인 면적 사이의 초록색 부분이 "남는 금액(상속분)"이다.
  * - 월지급금은 신청서에 반영한(선택한) 지급유형 기준이다. 초기증액형은 증액기간 종료 후 월지급금(×70%)으로 바뀐다.
  * - 보증금액·설정금액은 Worker의 고정 기준값으로 따로 계산되며, 이 그래프와 값이 다를 수 있다. */
@@ -73,7 +73,7 @@ function updateChart(r) {
   // 남는 금액(집값 − 보증잔액): 집값이 더 큰 구간
   if (lastGap >= 1) svg += '<path class="ch-gap" d="M' + pts(price, 0, lastGap).join('L') + 'L' + pts(bal, 0, lastGap).reverse().join('L') + 'Z"/>';
   svg += '<path class="ch-a4" d="' + area(t4, t3) + '"/><path class="ch-a3" d="' + area(t3, t2) + '"/>' +
-         '<path class="ch-a2" d="' + area(t2, t1) + '"/><path class="ch-a1" d="' + area(t1, zero) + '"/>' +
+         '<path class="ch-a2" d="' + area(t2, zero) + '"/>' +
          '<polyline class="ch-price" points="' + pts(price, 0, n).join(' ') + '"/>';
   // 가로축: 5년 단위 + 마지막(95세)
   var ticks = [];
@@ -97,13 +97,13 @@ function updateChart(r) {
          '<rect id="gOv" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/>';
 
   // 라벨: 각 면적의 오른쪽 끝 안쪽에 우측정렬(색을 쫓아가지 않아도 되도록), 주택가격은 선 위 가운데쯤
-  var bands = [['a1', '일시인출금', zero, t1], ['a2', '월 지급금(누적)', t1, t2], ['a3', '보증료(누적)', t2, t3], ['a4', '이자(누적)', t3, t4]];
+  var bands = [['a2', '받은금액', zero, t2], ['a3', '보증료', t2, t3], ['a4', '이자', t3, t4]];
   var labs = bands.map(function(b) { return { c: b[0], t: b[1], y: (Y(b[2][n]) + Y(b[3][n])) / 2, h: Y(b[2][n]) - Y(b[3][n]) }; });
   if (price[n] - bal[n] > 0) labs.push({ c: 'gap', t: '남는 금액', y: (Y(price[n]) + Y(bal[n])) / 2, h: Y(bal[n]) - Y(price[n]) });
   var lastY = Infinity;
-  labs.filter(function(o) { return o.c !== 'a1' || (r.lumpUsed || 0) > 0; }).sort(function(a, b) { return b.y - a.y; }).forEach(function(o) {
-    if (o.h < 3 && o.c !== 'a3') return;
-    var y = Math.min(o.c === 'a1' && o.h < 16 ? o.y - 11 : o.y, lastY - 13); lastY = y; // 얇은 띠는 띠 바로 위에 쓴다
+  labs.sort(function(a, b) { return b.y - a.y; }).forEach(function(o) {
+    if (o.h < 3) return;
+    var y = Math.min(o.y, lastY - 13); lastY = y;
     svg += '<text class="ch-lab ' + o.c + '" x="' + (W - R - 6) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end">' + o.t + '</text>';
   });
   var pm = Math.round(n / 2);
@@ -120,7 +120,7 @@ function updateChart(r) {
     rows.push('<tr><td>' + (k / 12) + '년 <small>(' + (age0 + k / 12) + '세)</small></td><td>' + eok(price[k]) + '</td><td>' + eok(S_.pay[k]) + '</td><td>' + eok(S_.lump[k]) +
               '</td><td>' + eok(t2[k]) + '</td><td>' + eok(S_.fee[k]) + '</td><td>' + eok(S_.intr[k]) + '</td><td>' + eok(bal[k]) + '</td><td>' + (gap > 0 ? eok(gap) : '0.0') + '</td></tr>');
   });
-  var table = '<div class="ch-unit">(단위: 억원)</div><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>주택가격</th><th>월지급금</th><th>일시인출금</th><th>받은금액</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  var table = '<div class="ch-unit">(단위: 억원, 누적금액)</div><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>주택가격</th><th>월지급금</th><th>일시인출금</th><th>받은금액</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
 
   box.innerHTML = '<div class="ch-wrap" id="gWrap">' + svg + '<div class="ch-tip" id="gTip" style="display:none"></div>' +
     '<div class="ch-inputs" id="gIn"></div></div>' + table;
