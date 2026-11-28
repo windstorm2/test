@@ -243,10 +243,10 @@ function priceNotes() {
     if (it) addBanner('priceMsg', 'info', '<b>한국부동산원/국민은행 인터넷시세 기준</b> (' + it.source + ', 기준일 ' + fmtDay(it.baseDay) + ') — 최저층은 하위평균가, 그 외 층은 일반평균가 적용.');
   }
   if (S.base === 'hsprc' && S.price && S.price.hsprc) {
-    addBanner('priceMsg', 'warn', '⚠ <b>공시가격 보정 적용</b> — 공시가격(' + won(S.price.hsprc) + '원, 기준일 ' + fmtDay(S.price.stdDay || S.price.crtnDay) + ')에 ' + $('ratio').value + '%를 적용한 참고용 추정치입니다. 감정평가 결과에 따라 연금액이 변동될 수 있습니다.');
+    addBanner('priceMsg', 'warn', '⚠ <b>공시가격 보정 적용</b> — 공시가격(' + won(S.price.hsprc) + '원, 기준일 ' + fmtDay(S.price.stdDay || S.price.crtnDay) + ')에 ' + $('ratio').value + '%를 적용한 추정치입니다.');
   }
   if (S.base === 'manual') {
-    addBanner('priceMsg', 'warn', '⚠ <b>상담자가 입력한 가격입니다.</b> 공사 가격평가 및 감정평가 결과에 따라 연금액이 변동될 수 있습니다.');
+    addBanner('priceMsg', 'warn', '⚠ <b>상담자가 입력한 가격입니다.</b>');
   }
   if (S.price && S.price.hsprc > 1200000000) {
     addBanner('priceMsg', 'err', '공시가격 ' + won(S.price.hsprc) + '원 — <b>12억 초과. 가입요건(공시가격 등 12억 이하) 확인 필요</b> (계산은 계속 진행)');

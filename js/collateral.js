@@ -217,7 +217,7 @@ function colRender(r) {
   h.push('</div>');
   h.push('<h4>추천 사유</h4>' + li(r.reasons));
   if (r.checks.length) h.push('<h4>확인할 사항</h4>' + li(r.checks));
-  if (r.tax) h.push('<h4>저당권 설정세금 참고값</h4><ul><li>약 ' + r.tax.tax.toLocaleString('ko-KR') + '원 (100세말 예상 주택가격 ' + r.tax.future.toLocaleString('ko-KR') + '원 × 0.12%. 기존 도구의 계산식이며 검증 전입니다.)</li></ul>');
+  if (r.tax) h.push('<h4>저당권 설정세금 참고값</h4><ul><li>약 ' + r.tax.tax.toLocaleString('ko-KR') + '원 (100세말 예상 주택가격 ' + r.tax.future.toLocaleString('ko-KR') + '원 × 0.12%.)</li></ul>');
   h.push('<h4>저당권방식 알아둘 점</h4>' + li([
     '등기 명의는 그대로 유지됩니다.',
     '소유자가 사망하면 배우자가 6개월 안에 주택 소유권 전부를 넘겨받아야 연금이 이어지고, 공동상속인 전원의 동의가 필요합니다.',

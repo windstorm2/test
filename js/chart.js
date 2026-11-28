@@ -77,23 +77,14 @@ function updateChart(r) {
   svg += '<text class="ch-t sub" x="' + L + '" y="' + (T + ph + 18) + '" text-anchor="middle">0</text>';
   var crossTxt = '';
   if (cross != null) {
-    var cy = Math.floor(cross / 12), cm = cross % 12;
-    crossTxt = cy + '년' + (cm ? ' ' + cm + '개월' : '') + ' 후(' + (age0 + cy) + '세 무렵)';
+    crossTxt = (cross / 12).toFixed(1) + '년';
     var cx = X(cross), anchor = cx > W - 150 ? 'end' : 'start', tx = anchor === 'end' ? cx - 6 : cx + 6;
     svg += '<line class="ch-cross" x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + T + '" y2="' + (T + ph) + '"/>' +
-           '<text class="ch-t" x="' + tx.toFixed(1) + '" y="' + (T + 12) + '" text-anchor="' + anchor + '">보증잔액이 집값을 넘는 시점: ' + crossTxt + '</text>';
+           '<text class="ch-t" x="' + tx.toFixed(1) + '" y="' + (T + 12) + '" text-anchor="' + anchor + '">' + crossTxt + '</text>';
   }
   svg += '<line id="gHov" class="ch-hov" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" style="display:none"/>' +
          '<rect id="gOv" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/></svg>';
 
-  // 쉬운 말 요약
-  var gapEnd = price[n] - bal[n], txt;
-  if (cross == null) {
-    txt = '100세 말까지 집값(예상 ' + chartFmt(price[n]) + ')이 보증잔액(' + chartFmt(bal[n]) + ')보다 커서, 약 <b>' + chartFmt(gapEnd) + '</b>이 남아 상속·잉여로 돌아갑니다.';
-  } else {
-    txt = '집값은 ' + chartFmt(price[n]) + ', 보증잔액은 ' + chartFmt(bal[n]) + '으로 <b>' + crossTxt + '부터 보증잔액이 집값을 넘습니다.</b> 그 전까지는 남는 금액이 있고, ' +
-          '주택연금은 집값 범위에서 정산되어 부족분을 상속인에게 청구하지 않습니다(비소구).';
-  }
   var legend = [['a1', '일시 받은 돈'], ['a2', '월 지급금(누적)'], ['a3', '보증료(누적)'], ['a4', '이자(누적)']].filter(function(x) { return x[0] !== 'a1' || (r.lumpUsed || 0) > 0; }).map(function(x) {
     return '<span class="lg"><i class="sw ch-' + x[0] + '"></i>' + x[1] + '</span>';
   }).join('') + '<span class="lg"><i class="sw-line"></i>집값 예상</span><span class="lg"><i class="sw ch-gap"></i>남는 금액(상속분)</span>';
@@ -109,9 +100,7 @@ function updateChart(r) {
   });
   var table = '<div style="overflow-x:auto;"><table class="p-table ch-table"><thead><tr><th>경과(나이)</th><th>집값(예상)</th><th>받은 돈</th><th>보증료</th><th>이자</th><th>보증잔액</th><th>남는 금액</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
 
-  box.innerHTML = '<h3 class="ch-h">시간이 지나면 어떻게 되나요? <small>(' + row.label + ' 월지급금 기준, 억·만원 표시)</small></h3>' +
-    '<div class="ch-note">※ 입력한 이자율·상승률 기준 참고용 그림입니다. 위 보증금액(약정금액)은 별도 기준값으로 계산되어 다를 수 있습니다.</div>' +
-    '<div class="ch-sum">' + txt + '</div><div class="ch-wrap" id="gWrap">' + svg + '<div class="ch-tip" id="gTip" style="display:none"></div></div>' +
+  box.innerHTML = '<div class="ch-wrap" id="gWrap">' + svg + '<div class="ch-tip" id="gTip" style="display:none"></div></div>' +
     '<div class="ch-legend">' + legend + '</div>' + table;
 
   // 마우스/터치로 가리킨 시점의 값 보기

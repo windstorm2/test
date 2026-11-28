@@ -252,7 +252,7 @@ function renderBldBanner(dong, ho, fl) {
   var isCollective = (S.bld && S.bld.collective) || !!ho;
   var lr = computeBestLandRight();
   if (isCollective && lr.ratioText) {
-    lines.push('<small>※ 대지권비율은 대지권등록부API 기준값으로 등기서면 작성시에는 등기부등본 확인 필요</small>');
+    lines.push('<small>※ 등기부 확인 후 적용</small>');
   }
 
   if (S.det && S.det.area == null && ho) {

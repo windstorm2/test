@@ -37,6 +37,8 @@
 <!-- ==================== STAGE 1: 상담 및 예상연금 산출 영역 (폭 210mm) ==================== -->
 <div class="consult-wrap no-print">
 
+  <div class="banner info" style="margin-bottom:10px;">※ 유의사항: 본 자료는 상담을 위한 자료이며, 공사의 심사 및 확인 과정에서 값이 다를 수 있습니다.</div>
+
   <!-- 로그인 상태: 로그인 후 1시간이 지나면 자동으로 접속이 끊어진다 -->
   <div id="sessBar" class="sess-bar no-print" style="display:none;">
     <small id="sessInfo"></small> <button type="button" class="c-btn pick" id="logoutBtn">로그아웃</button>
@@ -161,7 +163,7 @@
       <span>Step 4. 예상연금 산출 결과 (5종 비교)</span>
       <small style="font-weight:400;color:#0b5cad;">※ [신청서 반영]을 누르면 신청서에 체크됩니다.</small>
     </h2>
-    <div id="growthHolder" style="display:none"><input type="text" inputmode="decimal" id="col_growth" autocomplete="off" placeholder="예: 2.5" aria-label="주택가격 상승률(연 %)"></div>
+    <div id="growthHolder" style="display:none"><input type="text" inputmode="decimal" id="col_growth" autocomplete="off" value="2" aria-label="주택가격 상승률(연 %)"></div>
     <div id="summary"></div>
     <div style="overflow-x:auto;">
       <table class="p-table">
@@ -170,16 +172,12 @@
       </table>
     </div>
     <div id="gChart"></div>
-    <div class="banner info" style="margin-top:10px;">
-      상담 참고용 예상치입니다. 실제 월지급금은 공사의 가격평가·보증심사 결과에 따라 달라질 수 있습니다.
-    </div>
   </div>
 
   <!-- 5. 담보방식 추천 (v6.1) -->
   <div class="c-sec" id="colSec">
     <h2>
       <span>Step 5. 담보방식 추천</span>
-      <small style="font-weight:400;color:#0b5cad;">※ 점수·기준값은 임시값이며 최종 선택은 고객이 합니다.</small>
     </h2>
     <div class="banner info" id="colBase"></div>
     <div class="col-grid">

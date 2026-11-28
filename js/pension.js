@@ -45,11 +45,11 @@ function calcGuarantee(monthly, housePrc, ratePct, age, lump) { return guarantee
 /* 저장된 이자율. 예전 버전이 99(숨김 코드)나 `**`를 저장해 둔 경우 읽지 않고 지운다. */
 function guaranteeRateSaved() {
   try {
-    var v = localStorage.getItem('gRate') || '';
+    var v = localStorage.getItem('gRate') || '5';
     var n = Number(v);
     if (v !== '' && !(n >= 0 && n < 30)) { localStorage.removeItem('gRate'); return ''; }
     return v;
-  } catch (e) { return ''; }
+  } catch (e) { return '5'; }
 }
 
 /* 보증금액·120%·설정금액은 Worker가 Cloudflare 고정 기준값으로 계산해 예상연금 응답(r.guarantee)에 담아 준다.
@@ -92,8 +92,10 @@ function renderPension(r) {
   h += '<div class="sum-line">' +
        item('보증금액', '<span id="gAmt"></span> <span id="g120" class="sub"></span>', 'key') +
        item('설정금액', '<span id="gSet"></span>', 'key') +
-       item('그래프 이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" placeholder="예: 4.5" value="' + guaranteeRateSaved() + '"> %') +
-       item('그래프 상승률', '<span id="gGrowthSlot"></span> %') +
+       '</div>' +
+       '<div class="sum-line">' +
+       item('시뮬레이션 적용 이자율', '<input type="text" inputmode="decimal" id="gRate" autocomplete="off" value="' + guaranteeRateSaved() + '"> %') +
+       item('주택가격 상승률', '<span id="gGrowthSlot"></span> %') +
        '</div></div>';
   r.notes.forEach(function(n) {
     h += '<div class="banner ' + (r.status === 'ok' ? 'info' : 'warn') + '">' + n + '</div>';
