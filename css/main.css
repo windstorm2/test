@@ -411,6 +411,8 @@
 .col-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; background:#fff; }
 .col-table th, .col-table td { border:1px solid #c9d3de; padding:5px 7px; text-align:left; vertical-align:top; }
 .col-table th { background:#eef3f8; }
+.col-pick .c-btn { box-sizing:border-box; height:34px; margin:0; padding:0 14px; font-size:13px; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
+.col-pick .c-btn.sub { margin-left:auto; }
 .col-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
 
 /* 로그인 */
